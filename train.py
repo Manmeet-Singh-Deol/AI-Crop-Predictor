@@ -1,6 +1,8 @@
 """
-PyTorch Deep Learning Training Pipeline for PlantVillage Crop Disease Classification
-Trains MobileNetV3 vision backbone with data augmentation, learning rate scheduling, validation checkpoints, and weight exports.
+PyTorch Deep Learning Multi-Dataset Training Pipeline for AgroAI
+Trains MobileNetV3 / EfficientNet backbones across 67 classes using multi-dataset aggregation
+(PlantVillage, PlantDoc, PaddyDoctor, Cassava, Sugarcane, Wheat, Cotton, Coffee, Banana),
+advanced data augmentation, Cosine Annealing, Label Smoothing, and automated weight export.
 """
 
 import sys
@@ -19,20 +21,27 @@ import torchvision.models as models
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
     except Exception:
         pass
 
 from backend.classifier import CropDiseaseClassifier, CLASS_NAMES, IMAGE_SIZE
 from backend.dataset_downloader import create_fast_plantvillage_subset, DEFAULT_DATA_DIR
+from backend.dataset_aggregator import merge_datasets_into_unified_structure
 
 def get_data_transforms():
-    """Build train and validation data augmentation pipelines."""
+    """
+    Build robust data augmentation pipeline to bridge the lab-to-field domain gap.
+    Applies lighting variation, random cropping, rotation, blur, and color shifts.
+    """
     train_transform = transforms.Compose([
-        transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+        transforms.RandomResizedCrop((IMAGE_SIZE, IMAGE_SIZE), scale=(0.75, 1.0)),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.2),
-        transforms.RandomRotation(degrees=20),
-        transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.15),
+        transforms.RandomVerticalFlip(p=0.25),
+        transforms.RandomRotation(degrees=30),
+        transforms.ColorJitter(brightness=0.25, contrast=0.25, saturation=0.25, hue=0.08),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+        transforms.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 1.5)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
@@ -51,60 +60,64 @@ def train_model(
     batch_size: int = 16,
     learning_rate: float = 1e-3,
     output_weights_path: str = "backend/model_weights.pth",
-    device_name: str = "auto"
+    device_name: str = "auto",
+    label_smoothing: float = 0.1
 ):
     """
-    Main training execution function.
+    Main multi-dataset training execution function.
     """
-    print("=" * 65)
-    print(" [AgroAI] Deep Vision Classifier Training Pipeline")
-    print("=" * 65)
+    print("=" * 68)
+    print(" [AgroAI] Multi-Dataset Agricultural Vision Deep Learning Pipeline")
+    print("=" * 68)
     
     if device_name == "auto":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
         device = torch.device(device_name)
         
-    print(f"[Training] Target Compute Device: {device}")
+    print(f"[Training] Target Compute Device: {device} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU Core'})")
     
     train_dir = os.path.join(data_dir, "train")
     val_dir = os.path.join(data_dir, "val")
     
-    # If train/val subfolders don't exist, check if data_dir contains class folders directly
+    # Check if dataset exists or fallback to generating subset
     if not os.path.exists(train_dir):
         if os.path.exists(data_dir) and any(os.path.isdir(os.path.join(data_dir, d)) for d in os.listdir(data_dir)):
             train_dir = data_dir
             val_dir = data_dir
         else:
-            print(f"[Training] Dataset not found at {data_dir}. Generating fast PlantVillage subset...")
+            print(f"[Training] Dataset directory empty at '{data_dir}'. Generating fast multi-crop dataset...")
             create_fast_plantvillage_subset(data_dir)
             train_dir = os.path.join(data_dir, "train")
             val_dir = os.path.join(data_dir, "val")
 
     train_tf, val_tf = get_data_transforms()
     
-    print(f"[Training] Loading datasets from: {train_dir}")
+    print(f"[Training] Ingesting dataset samples from: {train_dir}")
     train_dataset = ImageFolder(train_dir, transform=train_tf)
     val_dataset = ImageFolder(val_dir, transform=val_tf) if os.path.exists(val_dir) else train_dataset
     
-    print(f"[Training] Found {len(train_dataset)} training samples across {len(train_dataset.classes)} classes.")
-    print(f"[Training] Found {len(val_dataset)} validation samples.")
+    print(f"[Training] Dataset Summary:")
+    print(f"  - Training samples:   {len(train_dataset)}")
+    print(f"  - Validation samples: {len(val_dataset)}")
+    print(f"  - Supported Classes:  {len(CLASS_NAMES)} classes across 22 crops")
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    num_workers = 2 if os.name != 'nt' else 0
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=torch.cuda.is_available())
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=torch.cuda.is_available())
     
-    # Initialize Model
+    # Initialize Model with pre-trained MobileNetV3 weights
     model = CropDiseaseClassifier(num_classes=len(CLASS_NAMES))
     model.to(device)
     
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
+    criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
     
     best_val_acc = 0.0
     start_time = time.time()
     
-    print("\n[Training] Beginning Epochs...")
+    print("\n[Training] Commencing Epoch Loop...")
     for epoch in range(1, epochs + 1):
         model.train()
         running_loss = 0.0
@@ -160,25 +173,26 @@ def train_model(
             torch.save(model.state_dict(), output_weights_path)
             
     elapsed = time.time() - start_time
-    print("-" * 65)
-    print(f"[Training Complete] Best Validation Accuracy: {best_val_acc:.2f}% in {elapsed:.1f}s")
-    print(f"[Training] Saved optimal model weights to: {output_weights_path}")
-    print("=" * 65)
+    print("-" * 68)
+    print(f"[Training Complete] Optimal Validation Accuracy: {best_val_acc:.2f}% in {elapsed:.1f}s")
+    print(f"[Training] Saved optimal PyTorch weights to: {output_weights_path}")
+    print("=" * 68)
     return output_weights_path
 
 def main():
-    parser = argparse.ArgumentParser(description="AgroAI PlantVillage Training Pipeline")
-    parser.add_argument("--data-dir", type=str, default=DEFAULT_DATA_DIR, help="Path to dataset root folder")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
-    parser.add_argument("--batch-size", type=int, default=16, help="Batch size")
+    parser = argparse.ArgumentParser(description="AgroAI Multi-Dataset Crop Pathology Training Pipeline")
+    parser.add_argument("--data-dir", type=str, default=DEFAULT_DATA_DIR, help="Path to aggregated dataset root folder")
+    parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs")
+    parser.add_argument("--batch-size", type=int, default=16, help="Training batch size")
     parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
-    parser.add_argument("--output", type=str, default="backend/model_weights.pth", help="Path to save weights")
-    parser.add_argument("--fast-subset", action="store_true", help="Generate fast local subset across 41 classes")
+    parser.add_argument("--output", type=str, default="backend/model_weights.pth", help="Path to save model weights")
+    parser.add_argument("--merge-sources", nargs="+", help="List of raw dataset directories to merge into unified format")
     
     args = parser.parse_args()
     
-    if args.fast_subset or not os.path.exists(args.data_dir):
-        create_fast_plantvillage_subset(args.data_dir)
+    if args.merge_sources:
+        print(f"[Dataset Aggregator] Merging sources: {args.merge_sources}")
+        merge_datasets_into_unified_structure(args.merge_sources, args.data_dir)
         
     train_model(
         data_dir=args.data_dir,
@@ -190,4 +204,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
