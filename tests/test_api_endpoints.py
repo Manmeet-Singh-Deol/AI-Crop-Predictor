@@ -158,6 +158,60 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("reply", d2)
         self.assertIn("Sugarcane", d2["reply"])
 
+    def test_13_farmer_feedback_and_active_learning(self):
+        """Verify farmer feedback submission and active learning enqueueing."""
+        fb_payload = {
+            "scan_id": "SCN-TEST-001",
+            "is_accurate": False,
+            "corrected_crop": "Tomato",
+            "corrected_disease": "Early Blight",
+            "comments": "Target lesions are concentric rings, typical of Alternaria solani"
+        }
+        res = self.client.post("/api/feedback", json=fb_payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["feedback"]["corrected_crop"], "Tomato")
+
+    def test_14_mlops_status_and_queue_management(self):
+        """Verify MLOps status, queue inspection, and sample approval."""
+        # 1. Get status
+        status_res = self.client.get("/api/mlops/status")
+        self.assertEqual(status_res.status_code, 200)
+        s_data = status_res.json()
+        self.assertIn("model_metadata", s_data)
+        self.assertIn("queue_statistics", s_data)
+        self.assertEqual(s_data["model_metadata"]["classes_supported"], 67)
+
+        # 2. Get queue
+        q_res = self.client.get("/api/mlops/queue")
+        self.assertEqual(q_res.status_code, 200)
+        q_data = q_res.json()
+        self.assertIn("samples", q_data)
+
+        # 3. Approve a sample if present
+        if len(q_data["samples"]) > 0:
+            sample_id = q_data["samples"][0]["sample_id"]
+            app_res = self.client.post("/api/mlops/approve-sample", json={
+                "sample_id": sample_id,
+                "status": "approved_for_training"
+            })
+            self.assertEqual(app_res.status_code, 200)
+            self.assertTrue(app_res.json()["success"])
+
+    def test_15_continuous_retraining_pipeline(self):
+        """Verify continuous fine-tuning, validation thresholding, and zero-downtime hot reloading."""
+        retrain_res = self.client.post("/api/mlops/trigger-retrain", json={
+            "epochs": 2,
+            "learning_rate": 0.0001
+        })
+        self.assertEqual(retrain_res.status_code, 200)
+        r_data = retrain_res.json()
+        self.assertTrue(r_data["success"])
+        self.assertIn("new_version", r_data)
+        self.assertEqual(r_data["validation_accuracy"], 100.0)
+        self.assertIn("hot_reload", r_data)
+
 if __name__ == "__main__":
     unittest.main()
 

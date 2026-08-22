@@ -134,6 +134,21 @@ def run_full_diagnosis(
         )
     except Exception as e:
         print(f"[Main] Notice: History logging bypassed ({e})")
+        
+    # 6. Active Learning Auto-Harvesting for low confidence (< 75%) or ambiguous field scans
+    if top_pred.get("confidence", 100.0) < 75.0:
+        try:
+            from backend.active_learning import enqueue_sample_for_active_learning
+            enqueue_sample_for_active_learning(
+                image_base64=gradcam_result.get("original_image", ""),
+                predicted_class=top_class_name,
+                confidence=top_pred["confidence"],
+                crop=top_pred["crop"],
+                disease=top_pred["disease"],
+                source="low_confidence_auto_harvest"
+            )
+        except Exception as e:
+            print(f"[Main] Active learning auto-enqueue note: {e}")
     
     return {
         "top_prediction": top_pred,
@@ -369,9 +384,90 @@ async def submit_feedback_endpoint(payload: FeedbackRequest):
             corrected_disease=payload.corrected_disease,
             comments=payload.comments or ""
         )
+        
+        # Enqueue to active learning buffer if incorrect or corrected
+        if not payload.is_accurate or payload.corrected_disease or payload.corrected_crop:
+            try:
+                from backend.active_learning import enqueue_sample_for_active_learning
+                corrected_label = f"{payload.corrected_crop or 'Crop'}___{payload.corrected_disease or 'Disease'}"
+                enqueue_sample_for_active_learning(
+                    image_base64="",
+                    predicted_class="User_Reported_Inaccuracy",
+                    confidence=50.0,
+                    crop=payload.corrected_crop or "Corrected",
+                    disease=payload.corrected_disease or "Corrected",
+                    user_corrected_class=corrected_label,
+                    feedback_notes=payload.comments or "",
+                    source="farmer_feedback_correction"
+                )
+            except Exception as e:
+                print(f"[Main] Feedback active learning enqueue note: {e}")
+                
         return {"success": True, "feedback": res}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Feedback submission error: {str(e)}")
+
+# =========================================================
+# MLOps & Continuous Retraining Endpoints
+# =========================================================
+
+from backend.active_learning import (
+    get_active_learning_queue,
+    update_sample_status,
+    get_queue_statistics
+)
+from backend.retrain_orchestrator import (
+    get_model_metadata,
+    get_retrain_history,
+    run_continuous_retraining
+)
+
+class SampleReviewRequest(BaseModel):
+    sample_id: str
+    status: str
+    corrected_class: Optional[str] = None
+
+class TriggerRetrainRequest(BaseModel):
+    epochs: Optional[int] = 5
+    learning_rate: Optional[float] = 1e-4
+
+@app.get("/api/mlops/status")
+async def mlops_status_endpoint():
+    """Get deployed model metadata, active learning queue metrics, and training lineage."""
+    meta = get_model_metadata()
+    queue_stats = get_queue_statistics()
+    history = get_retrain_history()
+    return {
+        "model_metadata": meta,
+        "queue_statistics": queue_stats,
+        "recent_runs": history[:5]
+    }
+
+@app.get("/api/mlops/queue")
+async def mlops_queue_endpoint(status: Optional[str] = None):
+    """List active learning harvested samples awaiting review or approved for retraining."""
+    samples = get_active_learning_queue(status_filter=status)
+    return {"samples": samples, "count": len(samples)}
+
+@app.post("/api/mlops/approve-sample")
+async def mlops_approve_sample_endpoint(payload: SampleReviewRequest):
+    """Approve, reject, or relabel an active learning sample."""
+    res = update_sample_status(payload.sample_id, payload.status, payload.corrected_class)
+    if not res:
+        raise HTTPException(status_code=404, detail="Sample ID not found")
+    return {"success": True, "sample": res}
+
+@app.post("/api/mlops/trigger-retrain")
+async def mlops_trigger_retrain_endpoint(payload: TriggerRetrainRequest):
+    """Execute continuous retraining pipeline and zero-downtime hot reload."""
+    try:
+        res = run_continuous_retraining(
+            epochs=payload.epochs or 5,
+            learning_rate=payload.learning_rate or 1e-4
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Continuous retraining error: {str(e)}")
 
 # Serve frontend index.html and static assets
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")

@@ -20,6 +20,8 @@ htmlcov/
 scout_history.json
 farmer_feedback.json
 crop_disease_model.pt
+data/active_learning_samples/
+.env
 
 # OS Specific
 .DS_Store

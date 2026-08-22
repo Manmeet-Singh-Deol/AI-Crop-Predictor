@@ -29,7 +29,7 @@ const state = {
 
 // DOM Elements Cache
 const DOM = {
-    // Nav & Status & PWA
+    // Nav & Status & PWA & MLOps
     langSelector: document.getElementById('lang-selector'),
     systemStatusBadge: document.getElementById('system-status-badge'),
     modelStatusText: document.getElementById('model-status-text'),
@@ -39,6 +39,29 @@ const DOM = {
     networkModeBadge: document.getElementById('network-mode-badge'),
     networkModeDot: document.getElementById('network-mode-dot'),
     networkModeText: document.getElementById('network-mode-text'),
+    btnOpenMlops: document.getElementById('btn-open-mlops'),
+    
+    // MLOps Active Learning Hub Modal
+    mlopsModal: document.getElementById('mlops-modal'),
+    btnCloseMlops: document.getElementById('btn-close-mlops'),
+    mlopsModelVersion: document.getElementById('mlops-model-version'),
+    mlopsAccuracy: document.getElementById('mlops-accuracy'),
+    mlopsHarvestedCount: document.getElementById('mlops-harvested-count'),
+    mlopsApprovedCount: document.getElementById('mlops-approved-count'),
+    btnTriggerRetrain: document.getElementById('btn-trigger-retrain'),
+    retrainProgressBox: document.getElementById('retrain-progress-box'),
+    retrainProgressLabel: document.getElementById('retrain-progress-label'),
+    retrainProgressPct: document.getElementById('retrain-progress-pct'),
+    retrainProgressBar: document.getElementById('retrain-progress-bar'),
+    mlopsQueueList: document.getElementById('mlops-queue-list'),
+    mlopsQueueBadge: document.getElementById('mlops-queue-badge'),
+    mlopsHistoryList: document.getElementById('mlops-history-list'),
+
+    // Farmer Active Learning Feedback
+    btnFeedbackAccurate: document.getElementById('btn-feedback-accurate'),
+    btnFeedbackIncorrect: document.getElementById('btn-feedback-incorrect'),
+    feedbackBtnGroup: document.getElementById('feedback-btn-group'),
+    feedbackThanksMsg: document.getElementById('feedback-thanks-msg'),
     
     // Sample Strip
     sampleCardsContainer: document.getElementById('sample-cards-container'),
@@ -558,6 +581,14 @@ function handleDiagnosisSuccess(data) {
         `;
         DOM.differentialBarsContainer.appendChild(item);
     });
+    
+    // Reset Active Learning Farmer Feedback Buttons for new scan
+    if (DOM.feedbackBtnGroup && DOM.feedbackThanksMsg) {
+        DOM.feedbackBtnGroup.classList.remove('hidden');
+        DOM.feedbackBtnGroup.classList.add('flex');
+        DOM.feedbackThanksMsg.classList.add('hidden');
+        DOM.feedbackThanksMsg.classList.remove('flex');
+    }
     
     // 4. Grad-CAM Image Display
     DOM.gradcamPeakBadge.textContent = `Peak Focus: ${data.gradcam.attention_peak_pct || '--'}%`;
@@ -1797,10 +1828,228 @@ function setupPWAAndNetwork() {
     updateNetworkStatus();
 }
 
+// =========================================================
+// MLOps & Continuous Retraining Controller
+// =========================================================
+
+function setupMLOpsAndFeedback() {
+    // 1. Modal Toggle
+    if (DOM.btnOpenMlops) {
+        DOM.btnOpenMlops.addEventListener('click', () => {
+            if (DOM.mlopsModal) {
+                DOM.mlopsModal.classList.remove('hidden');
+                DOM.mlopsModal.classList.add('flex');
+                fetchMLOpsStatus();
+            }
+        });
+    }
+
+    if (DOM.btnCloseMlops) {
+        DOM.btnCloseMlops.addEventListener('click', () => {
+            if (DOM.mlopsModal) {
+                DOM.mlopsModal.classList.add('hidden');
+                DOM.mlopsModal.classList.remove('flex');
+            }
+        });
+    }
+
+    // 2. Trigger Continuous Retraining
+    if (DOM.btnTriggerRetrain) {
+        DOM.btnTriggerRetrain.addEventListener('click', async () => {
+            await triggerMLOpsRetraining();
+        });
+    }
+
+    // 3. Farmer Validation / Active Learning Feedback
+    if (DOM.btnFeedbackAccurate) {
+        DOM.btnFeedbackAccurate.addEventListener('click', () => {
+            submitDiagnosisFeedback(true);
+        });
+    }
+    if (DOM.btnFeedbackIncorrect) {
+        DOM.btnFeedbackIncorrect.addEventListener('click', () => {
+            submitDiagnosisFeedback(false);
+        });
+    }
+}
+
+async function fetchMLOpsStatus() {
+    try {
+        const res = await fetch('/api/mlops/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const meta = data.model_metadata || {};
+        const qStats = data.queue_statistics || {};
+        const runs = data.recent_runs || [];
+
+        if (DOM.mlopsModelVersion) DOM.mlopsModelVersion.textContent = meta.model_version || 'v1.3.0';
+        if (DOM.mlopsAccuracy) DOM.mlopsAccuracy.textContent = `${meta.validation_accuracy || 100.0}%`;
+        if (DOM.mlopsHarvestedCount) DOM.mlopsHarvestedCount.textContent = qStats.total_harvested_samples || 0;
+        if (DOM.mlopsApprovedCount) DOM.mlopsApprovedCount.textContent = qStats.approved_for_retraining || 0;
+        if (DOM.mlopsQueueBadge) DOM.mlopsQueueBadge.textContent = `${qStats.total_harvested_samples || 0} Items`;
+
+        // Render Recent Runs Lineage
+        if (DOM.mlopsHistoryList) {
+            if (runs.length === 0) {
+                DOM.mlopsHistoryList.innerHTML = `<div class="p-3 text-center text-slate-500 text-xs">No continuous retraining runs recorded yet.</div>`;
+            } else {
+                DOM.mlopsHistoryList.innerHTML = runs.map(r => `
+                    <div class="p-3 flex items-center justify-between hover:bg-slate-900/60 transition">
+                        <div class="space-y-0.5">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-white font-mono">${r.model_version}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">${r.final_accuracy}% Val Acc</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400">Epochs: ${r.epochs} • AL Samples: ${r.al_samples_used} • Time: ${r.duration_seconds}s</p>
+                        </div>
+                        <span class="text-[10px] text-slate-500 font-mono">${r.timestamp}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Fetch queue samples
+        const qRes = await fetch('/api/mlops/queue');
+        if (qRes.ok) {
+            const qData = await qRes.json();
+            renderMLOpsQueue(qData.samples || []);
+        }
+    } catch (e) {
+        console.warn("[MLOps] Status fetch error:", e);
+    }
+}
+
+function renderMLOpsQueue(samples) {
+    if (!DOM.mlopsQueueList) return;
+    if (samples.length === 0) {
+        DOM.mlopsQueueList.innerHTML = `<div class="p-4 text-center text-slate-500 text-xs">No active learning items pending. Field predictions meeting &gt;75% confidence criteria.</div>`;
+        return;
+    }
+
+    DOM.mlopsQueueList.innerHTML = samples.map(s => `
+        <div class="p-3 flex items-center justify-between hover:bg-slate-900/60 transition">
+            <div class="space-y-0.5">
+                <div class="flex items-center space-x-2">
+                    <span class="font-mono text-purple-400 font-bold text-xs">${s.sample_id}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">${s.crop} - ${s.disease}</span>
+                    <span class="px-1.5 py-0.5 rounded ${s.status === 'approved_for_training' ? 'bg-teal-950 text-teal-300 border border-teal-500/30' : 'bg-amber-950 text-amber-300 border border-amber-500/30'} text-[10px] font-semibold">
+                        ${s.status.replace(/_/g, ' ')}
+                    </span>
+                </div>
+                <p class="text-[10px] text-slate-400">Pred: <span class="text-slate-300 font-semibold">${s.predicted_class}</span> (${s.confidence}%) • Uncertainty Score: <span class="text-amber-400 font-mono">${s.uncertainty_score}</span></p>
+                ${s.feedback_notes ? `<p class="text-[10px] text-slate-400 italic">Farmer note: "${s.feedback_notes}"</p>` : ''}
+            </div>
+            <div class="flex items-center space-x-1.5">
+                ${s.status !== 'approved_for_training' ? `
+                    <button onclick="window.handleApproveSample('${s.sample_id}', 'approved_for_training')" class="px-2 py-1 rounded bg-teal-900/60 hover:bg-teal-800 text-teal-200 border border-teal-500/30 text-[10px] font-semibold transition">
+                        <i class="fa-solid fa-check mr-1"></i>Approve
+                    </button>
+                ` : ''}
+                ${s.status !== 'rejected' ? `
+                    <button onclick="window.handleApproveSample('${s.sample_id}', 'rejected')" class="px-2 py-1 rounded bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/30 text-[10px] font-semibold transition">
+                        <i class="fa-solid fa-ban mr-1"></i>Reject
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+window.handleApproveSample = async function(sampleId, status) {
+    try {
+        const res = await fetch('/api/mlops/approve-sample', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sample_id: sampleId, status: status })
+        });
+        if (res.ok) {
+            showToast(`Sample ${sampleId} ${status === 'approved_for_training' ? 'approved' : 'rejected'}!`, "success");
+            fetchMLOpsStatus();
+        }
+    } catch (e) {
+        showToast("Action failed", "error");
+    }
+};
+
+async function triggerMLOpsRetraining() {
+    if (!DOM.btnTriggerRetrain || !DOM.retrainProgressBox) return;
+    
+    DOM.btnTriggerRetrain.disabled = true;
+    DOM.btnTriggerRetrain.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i>Retraining...`;
+    DOM.retrainProgressBox.classList.remove('hidden');
+
+    let currentPct = 10;
+    const progressInterval = setInterval(() => {
+        if (currentPct < 90) {
+            currentPct += 15;
+            if (DOM.retrainProgressBar) DOM.retrainProgressBar.style.width = `${currentPct}%`;
+            if (DOM.retrainProgressPct) DOM.retrainProgressPct.textContent = `Epoch ${Math.min(5, Math.ceil(currentPct / 20))}/5`;
+        }
+    }, 400);
+
+    try {
+        const res = await fetch('/api/mlops/trigger-retrain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ epochs: 5, learning_rate: 0.0001 })
+        });
+        clearInterval(progressInterval);
+
+        if (res.ok) {
+            const data = await res.json();
+            if (DOM.retrainProgressBar) DOM.retrainProgressBar.style.width = `100%`;
+            if (DOM.retrainProgressPct) DOM.retrainProgressPct.textContent = `Completed (100%)`;
+            if (DOM.retrainProgressLabel) DOM.retrainProgressLabel.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i><span class="text-emerald-300">Model ${data.new_version} Deployed (${data.validation_accuracy}% accuracy) • Hot-reloaded with Zero Downtime!</span>`;
+
+            showToast(`🎉 Retraining Complete! Promoted to ${data.new_version} (${data.duration_seconds}s)`, "success");
+            setTimeout(() => {
+                fetchMLOpsStatus();
+                DOM.retrainProgressBox.classList.add('hidden');
+                DOM.btnTriggerRetrain.disabled = false;
+                DOM.btnTriggerRetrain.innerHTML = `<i class="fa-solid fa-play mr-1"></i>Start Retraining`;
+            }, 2500);
+        } else {
+            showToast("Retraining pipeline encountered an error", "error");
+            DOM.btnTriggerRetrain.disabled = false;
+            DOM.btnTriggerRetrain.innerHTML = `<i class="fa-solid fa-play mr-1"></i>Start Retraining`;
+        }
+    } catch (e) {
+        clearInterval(progressInterval);
+        showToast("Retraining connection failed", "error");
+        DOM.btnTriggerRetrain.disabled = false;
+        DOM.btnTriggerRetrain.innerHTML = `<i class="fa-solid fa-play mr-1"></i>Start Retraining`;
+    }
+}
+
+async function submitDiagnosisFeedback(isAccurate) {
+    if (DOM.feedbackBtnGroup && DOM.feedbackThanksMsg) {
+        DOM.feedbackBtnGroup.classList.add('hidden');
+        DOM.feedbackThanksMsg.classList.remove('hidden');
+        DOM.feedbackThanksMsg.classList.add('flex');
+    }
+
+    try {
+        await fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                scan_id: `SCN-${Date.now()}`,
+                is_accurate: isAccurate,
+                comments: isAccurate ? "Confirmed accurate by farmer" : "Reported inaccurate by farmer"
+            })
+        });
+        showToast(isAccurate ? "Thank you for confirming diagnosis accuracy!" : "Correction received! Added to Active Learning pool.", "success");
+    } catch (e) {
+        console.warn("Feedback sync notice:", e);
+    }
+}
+
 // --- Initialization ---
 async function init() {
     setupEventListeners();
     setupPWAAndNetwork();
+    setupMLOpsAndFeedback();
     
     // Pre-warm in-browser ONNX engine in the background for instant edge inference
     getONNXSession();

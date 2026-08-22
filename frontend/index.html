@@ -113,6 +113,11 @@
                     <span id="model-status-text">AI Core Ready (67 Classes)</span>
                 </div>
 
+                <button id="btn-open-mlops" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 border border-purple-800/50 text-xs font-semibold transition shadow-sm" title="MLOps Active Learning & Retraining Hub">
+                    <i class="fa-solid fa-arrows-rotate text-purple-400"></i>
+                    <span class="hidden sm:inline">MLOps Hub</span>
+                </button>
+
                 <button id="btn-export-pdf-nav" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-medium transition shadow-sm disabled:opacity-50" disabled>
                     <i class="fa-solid fa-file-pdf text-red-400"></i>
                     <span id="txt-export-pdf-nav">Export PDF</span>
@@ -417,6 +422,28 @@
                             <div class="text-xs text-slate-500 italic">No active scan probabilities.</div>
                         </div>
                     </div>
+
+                    <!-- Active Learning Validation & Farmer Feedback Strip -->
+                    <div id="feedback-widget-container" class="mt-4 pt-3 border-t border-slate-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                        <div class="flex items-center space-x-2 text-slate-300">
+                            <i class="fa-solid fa-circle-question text-brand-400"></i>
+                            <span id="txt-feedback-prompt">Is this diagnosis accurate for your crop?</span>
+                        </div>
+                        <div id="feedback-btn-group" class="flex items-center space-x-2">
+                            <button id="btn-feedback-accurate" class="px-2.5 py-1 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold transition flex items-center space-x-1">
+                                <i class="fa-solid fa-thumbs-up text-emerald-400"></i>
+                                <span>Accurate</span>
+                            </button>
+                            <button id="btn-feedback-incorrect" class="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/40 text-[11px] font-semibold transition flex items-center space-x-1">
+                                <i class="fa-solid fa-thumbs-down text-rose-400"></i>
+                                <span>Correct Label</span>
+                            </button>
+                        </div>
+                        <div id="feedback-thanks-msg" class="hidden text-xs text-emerald-400 font-semibold items-center space-x-1">
+                            <i class="fa-solid fa-check-circle"></i>
+                            <span>Thanks! Harvested for continuous active retraining.</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Comprehensive Treatment & Advisory Center -->
@@ -694,6 +721,119 @@
             </div>
         </div>
     </footer>
+
+    <!-- ========================================================= -->
+    <!-- MLOPS & CONTINUOUS RETRAINING MODAL WINDOW -->
+    <!-- ========================================================= -->
+    <div id="mlops-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-xl bg-purple-600/20 text-purple-400 flex items-center justify-center text-lg border border-purple-500/30">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white font-['Plus_Jakarta_Sans'] flex items-center space-x-2">
+                            <span>MLOps Active Learning & Continuous Retraining Hub</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/40">AUTOMATED</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Hard negative harvesting, drift monitoring, and zero-downtime hot reloading</p>
+                    </div>
+                </div>
+                <button id="btn-close-mlops" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body Scrollable -->
+            <div class="p-6 overflow-y-auto space-y-6 text-xs text-slate-300">
+                
+                <!-- Model Lineage & Version Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-[10px] uppercase font-bold text-slate-400">Deployed Version</span>
+                        <div id="mlops-model-version" class="text-base font-black text-purple-400 font-mono">v1.3.0</div>
+                        <p class="text-[10px] text-slate-500">MobileNetV3 Edge</p>
+                    </div>
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-[10px] uppercase font-bold text-slate-400">Accuracy Benchmark</span>
+                        <div id="mlops-accuracy" class="text-base font-black text-emerald-400 font-mono">100.0%</div>
+                        <p class="text-[10px] text-slate-500">Validation score</p>
+                    </div>
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-[10px] uppercase font-bold text-slate-400">Harvested Samples</span>
+                        <div id="mlops-harvested-count" class="text-base font-black text-amber-400 font-mono">0</div>
+                        <p class="text-[10px] text-slate-500">Low confidence / feedback</p>
+                    </div>
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-[10px] uppercase font-bold text-slate-400">Approved for Training</span>
+                        <div id="mlops-approved-count" class="text-base font-black text-teal-400 font-mono">0</div>
+                        <p class="text-[10px] text-slate-500">Active learning buffer</p>
+                    </div>
+                </div>
+
+                <!-- 1-Click Continuous Retraining Trigger Card -->
+                <div class="bg-gradient-to-r from-purple-950/40 via-slate-900 to-slate-950 p-5 rounded-xl border border-purple-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-microchip text-purple-400"></i>
+                            <span>Trigger Continuous Active Learning Fine-Tuning</span>
+                        </h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Fine-tunes the PyTorch neural network with newly approved farmer feedback, runs validation checks, exports the in-browser ONNX model, and hot-reloads the production inference engine with zero server downtime.
+                        </p>
+                    </div>
+                    <button id="btn-trigger-retrain" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30 transition flex-shrink-0 flex items-center space-x-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Start Retraining</span>
+                    </button>
+                </div>
+
+                <!-- Retraining Progress Bar (Hidden by default) -->
+                <div id="retrain-progress-box" class="hidden bg-slate-950 p-4 rounded-xl border border-purple-500/40 space-y-2">
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                        <span id="retrain-progress-label" class="text-purple-300 flex items-center space-x-2">
+                            <i class="fa-solid fa-spinner fa-spin text-purple-400"></i>
+                            <span>Fine-tuning neural network layers with AdamW optimizer...</span>
+                        </span>
+                        <span id="retrain-progress-pct" class="font-mono text-purple-400">Epoch 1/5</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div id="retrain-progress-bar" class="bg-gradient-to-r from-purple-500 to-teal-400 h-full rounded-full transition-all duration-500" style="width: 25%"></div>
+                    </div>
+                </div>
+
+                <!-- Active Learning Harvest Queue Table -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Harvested Field Queue (Active Learning Buffer)</span>
+                        <span id="mlops-queue-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">0 Items</span>
+                    </div>
+                    <div class="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden max-h-44 overflow-y-auto">
+                        <div id="mlops-queue-list" class="divide-y divide-slate-800/80">
+                            <div class="p-4 text-center text-slate-500 text-xs">
+                                No active learning items pending. Field predictions meeting &gt;75% confidence criteria.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Retraining Run Lineage History -->
+                <div class="space-y-2">
+                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Continuous Retraining Run Lineage</span>
+                    <div id="mlops-history-list" class="bg-slate-950 rounded-xl border border-slate-800 divide-y divide-slate-800/80 max-h-40 overflow-y-auto">
+                        <div class="p-3 text-center text-slate-500 text-xs">
+                            No automated retraining runs recorded yet.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
 
     <!-- ========================================================= -->
     <!-- AI AGRONOMIST CHATBOT FLOATING WIDGET & MODAL WINDOW -->
