@@ -163,9 +163,11 @@ def delete_scan_from_supabase(scan_id: str) -> bool:
     if not is_supabase_configured():
         return False
         
+    import urllib.parse
     url = get_supabase_url()
     try:
-        endpoint = f"{url}/rest/v1/scouting_history?scan_id=eq.{scan_id}"
+        clean_id = urllib.parse.quote(str(scan_id).strip())
+        endpoint = f"{url}/rest/v1/scouting_history?scan_id=eq.{clean_id}"
         with httpx.Client(timeout=6.0) as client:
             res = client.delete(endpoint, headers=_get_headers())
             return res.status_code in [200, 204]

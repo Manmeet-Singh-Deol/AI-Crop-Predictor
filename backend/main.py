@@ -29,18 +29,23 @@ from backend.history_store import (
 from backend.i18n_dict import get_translations
 from backend.export_onnx import export_model_to_onnx
 
+# Security Hardening: Prevent Decompression Bomb attacks in PIL
+Image.MAX_IMAGE_PIXELS = 25_000_000
+MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
+MAX_BASE64_CHAR_LEN = 20 * 1024 * 1024   # ~15 MB payload
+
 app = FastAPI(
     title="AI Crop Disease Detection & Prediction System",
     description="End-to-end full-stack AI platform for plant pathology diagnosis, Grad-CAM explainability, infection severity scoring, and microclimate outbreak forecasting.",
     version="1.2.0"
 )
 
-# Enable CORS for cross-origin frontend interactions
+# Enable CORS (allow_credentials=False when using wildcard origin for browser security)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -156,31 +161,41 @@ async def diagnose_file(
         
     try:
         contents = await file.read()
+        if len(contents) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(status_code=413, detail="File too large. Maximum supported image size is 15MB.")
+        if len(contents) < 100:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty or corrupted.")
         image = Image.open(io.BytesIO(contents)).convert("RGB")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image file format. Please upload JPG, PNG, or WEBP.")
         
     return run_full_diagnosis(image, alpha=alpha, colormap=colormap, target_crop=target_crop, location=location)
 
 @app.post("/api/diagnose-json")
 async def diagnose_json(payload: Base64DiagnoseRequest):
     """
-    Diagnose leaf disease from base64 string or predefined sample ID.
+    Diagnose leaf disease from base64 string or predefined sample ID with size bounds.
     """
     image = None
     hint_class = None
     if payload.sample_id:
         image = get_sample_image(payload.sample_id)
         hint_class = get_sample_expected_class(payload.sample_id)
+        if image is None:
+            raise HTTPException(status_code=404, detail="Sample specimen not found.")
     elif payload.image_base64:
+        b64_str = payload.image_base64
+        if len(b64_str) > MAX_BASE64_CHAR_LEN:
+            raise HTTPException(status_code=413, detail="Base64 image payload exceeds maximum allowed size (15MB).")
         try:
-            b64_str = payload.image_base64
             if "," in b64_str:
                 b64_str = b64_str.split(",")[1]
             img_bytes = base64.b64decode(b64_str)
             image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid base64 image: {str(e)}")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid or corrupted base64 image data.")
     else:
         raise HTTPException(status_code=400, detail="Either 'image_base64' or 'sample_id' must be supplied.")
         

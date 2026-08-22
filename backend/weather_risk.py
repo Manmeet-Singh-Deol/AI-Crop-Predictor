@@ -178,18 +178,26 @@ async def fetch_weather_by_coords(lat: float, lon: float, location_name: str = "
 
 async def search_city_and_get_risk(city_name: str) -> Dict[str, Any]:
     """
-    Geocode city name and retrieve full weather risk analysis.
+    Geocode city name and retrieve full weather risk analysis with sanitized query parameters.
     """
+    clean_city = str(city_name).strip()[:100]  # Bound string length
+    
     # Check if popular location first
     for loc in POPULAR_LOCATIONS:
-        if city_name.lower() in loc["name"].lower():
+        if clean_city.lower() in loc["name"].lower():
             return await fetch_weather_by_coords(loc["lat"], loc["lon"], loc["name"])
             
-    # Geocoding via Open-Meteo
-    geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=1&language=en&format=json"
+    # Geocoding via Open-Meteo with structured params (prevents parameter injection)
+    geo_base = "https://geocoding-api.open-meteo.com/v1/search"
+    geo_params = {
+        "name": clean_city,
+        "count": 1,
+        "language": "en",
+        "format": "json"
+    }
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            geo_res = await client.get(geo_url)
+            geo_res = await client.get(geo_base, params=geo_params)
             geo_res.raise_for_status()
             geo_data = geo_res.json()
             
@@ -204,4 +212,4 @@ async def search_city_and_get_risk(city_name: str) -> Dict[str, Any]:
         print(f"[WeatherRisk] Geocoding API notice ({e}), using default location.")
         
     # Default fallback to Salinas Valley
-    return await fetch_weather_by_coords(36.6777, -121.6555, f"{city_name} (Estimated Region)")
+    return await fetch_weather_by_coords(36.6777, -121.6555, f"{clean_city} (Estimated Region)")
