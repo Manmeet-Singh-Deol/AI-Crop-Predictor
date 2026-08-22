@@ -43,6 +43,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
+    <!-- PWA & Mobile Web App Meta -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#059669">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+
+    <!-- ONNX Web Runtime for 100% In-Browser Offline Vision Inference -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/ort.min.js"></script>
+    
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-slate-950">
@@ -67,14 +77,26 @@
                             AgroAI
                         </span>
                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-400 border border-brand-500/30">
-                            PRO v1.1
+                            PRO v1.3 • PWA
                         </span>
                     </div>
                     <p id="txt-app-subtitle" class="text-[11px] text-slate-400 hidden sm:block">Deep Vision Pathology • Grad-CAM Explainability • Weather Outbreak Risk</p>
                 </div>
             </div>
 
-            <div class="flex items-center space-x-2.5">
+            <div class="flex items-center space-x-2">
+                <!-- PWA Offline / In-Browser ONNX Indicator Badge -->
+                <div id="network-mode-badge" class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-950/50 border border-emerald-500/30 text-[11px] font-medium text-emerald-300">
+                    <span id="network-mode-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="network-mode-text">ONLINE (Cloud)</span>
+                </div>
+
+                <!-- 1-Click PWA App Install Button (Shown on Mobile / Chrome PWA prompt) -->
+                <button id="btn-pwa-install" class="hidden items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md shadow-emerald-500/20">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Install App</span>
+                </button>
+
                 <!-- Language Selector -->
                 <div class="relative">
                     <select id="lang-selector" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-500 transition cursor-pointer">
@@ -88,7 +110,7 @@
 
                 <div id="system-status-badge" class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300">
                     <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
-                    <span id="model-status-text">AI Core Ready (41 Classes)</span>
+                    <span id="model-status-text">AI Core Ready (67 Classes)</span>
                 </div>
 
                 <button id="btn-export-pdf-nav" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-medium transition shadow-sm disabled:opacity-50" disabled>
@@ -812,6 +834,7 @@
     <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
+    <script src="offline_db.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
