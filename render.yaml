@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: agroai-crop-predictor
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 8000
+    healthCheckPath: /api/health

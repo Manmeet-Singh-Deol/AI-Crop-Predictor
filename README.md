@@ -4,6 +4,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-EE4C2C.svg)](https://pytorch.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Manmeet-Singh-Deol/AI-Crop-Predictor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > An enterprise-grade, end-to-end full-stack AI platform for plant pathology diagnosis, rotation-invariant leaf morphology classification, Grad-CAM visual explainability, infection severity scoring, microclimate disease forecasting, tank dosage calculations, and conversational AI agronomy advisory.
