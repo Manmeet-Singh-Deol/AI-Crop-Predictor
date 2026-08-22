@@ -1318,6 +1318,70 @@ function setupEventListeners() {
             stopVoiceRecognition();
         });
     }
+
+    // History Actions
+    if (DOM.btnExportCsv) {
+        DOM.btnExportCsv.addEventListener('click', () => {
+            window.location.href = '/api/history/export-csv';
+            showToast("Exporting farm audit log to CSV...", "info");
+        });
+    }
+
+    if (DOM.btnClearHistory) {
+        DOM.btnClearHistory.addEventListener('click', async () => {
+            if (confirm("Are you sure you want to clear the scouting audit log?")) {
+                await fetch('/api/history', { method: 'DELETE' });
+                await loadScoutHistory();
+                showToast("Scouting history cleared", "info");
+            }
+        });
+    }
+
+    // Export PDF
+    if (DOM.btnExportPdfNav) {
+        DOM.btnExportPdfNav.addEventListener('click', handleExportPdf);
+    }
+    if (DOM.btnExportPdfCard) {
+        DOM.btnExportPdfCard.addEventListener('click', handleExportPdf);
+    }
+
+    // AI Chatbot Event Listeners
+    if (DOM.btnOpenChatbot) {
+        DOM.btnOpenChatbot.addEventListener('click', () => toggleChatbot(true));
+    }
+    if (DOM.btnChatClose) {
+        DOM.btnChatClose.addEventListener('click', () => {
+            stopSpeaking();
+            stopVoiceRecognition();
+            toggleChatbot(false);
+        });
+    }
+    if (DOM.btnChatClear) {
+        DOM.btnChatClear.addEventListener('click', clearChatHistory);
+    }
+    if (DOM.btnVoiceToggle) {
+        DOM.btnVoiceToggle.addEventListener('click', toggleVoiceReadAloud);
+    }
+    if (DOM.btnVoiceMic) {
+        DOM.btnVoiceMic.addEventListener('click', startVoiceRecognition);
+    }
+    if (DOM.btnCancelVoice) {
+        DOM.btnCancelVoice.addEventListener('click', stopVoiceRecognition);
+    }
+    if (DOM.chatInputForm) {
+        DOM.chatInputForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            sendChatMessage();
+        });
+    }
+    if (DOM.chatSuggestedChips) {
+        DOM.chatSuggestedChips.addEventListener('click', (e) => {
+            const btn = e.target.closest('.chat-chip-btn');
+            if (btn && btn.dataset.msg) {
+                sendChatMessage(btn.dataset.msg);
+            }
+        });
+    }
 }
 
 // =========================================================
@@ -1710,63 +1774,6 @@ function clearChatHistory() {
         </div>
     `;
     showToast("Chat conversation cleared", "info");
-}
-
-// --- History Actions ---
-DOM.btnExportCsv.addEventListener('click', () => {
-    window.location.href = '/api/history/export-csv';
-    showToast("Exporting farm audit log to CSV...", "info");
-});
-
-DOM.btnClearHistory.addEventListener('click', async () => {
-    if (confirm("Are you sure you want to clear the scouting audit log?")) {
-        await fetch('/api/history', { method: 'DELETE' });
-        await loadScoutHistory();
-        showToast("Scouting history cleared", "info");
-    }
-});
-
-// Export PDF
-DOM.btnExportPdfNav.addEventListener('click', handleExportPdf);
-DOM.btnExportPdfCard.addEventListener('click', handleExportPdf);
-
-// AI Chatbot Event Listeners
-if (DOM.btnOpenChatbot) {
-    DOM.btnOpenChatbot.addEventListener('click', () => toggleChatbot(true));
-}
-if (DOM.btnChatClose) {
-    DOM.btnChatClose.addEventListener('click', () => {
-        stopSpeaking();
-        stopVoiceRecognition();
-        toggleChatbot(false);
-    });
-}
-if (DOM.btnChatClear) {
-    DOM.btnChatClear.addEventListener('click', clearChatHistory);
-}
-if (DOM.btnVoiceToggle) {
-    DOM.btnVoiceToggle.addEventListener('click', toggleVoiceReadAloud);
-}
-if (DOM.btnVoiceMic) {
-    DOM.btnVoiceMic.addEventListener('click', startVoiceRecognition);
-}
-if (DOM.btnCancelVoice) {
-    DOM.btnCancelVoice.addEventListener('click', stopVoiceRecognition);
-}
-if (DOM.chatInputForm) {
-    DOM.chatInputForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        sendChatMessage();
-    });
-}
-if (DOM.chatSuggestedChips) {
-    DOM.chatSuggestedChips.addEventListener('click', (e) => {
-        const btn = e.target.closest('.chat-chip-btn');
-        if (btn && btn.dataset.msg) {
-            sendChatMessage(btn.dataset.msg);
-        }
-    });
-}
 }
 
 // --- PWA & Offline Network Manager ---

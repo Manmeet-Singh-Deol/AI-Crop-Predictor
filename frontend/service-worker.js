@@ -4,12 +4,13 @@
  * in-browser ONNX vision model, and agronomist databases.
  */
 
-const CACHE_NAME = 'agroai-cache-v1.4.0';
+const CACHE_NAME = 'agroai-cache-v1.5.0';
 const OFFLINE_URLS = [
     '/',
     '/index.html',
     '/styles.css',
     '/app.js',
+    '/offline_db.js',
     '/manifest.json',
     '/icon-192.png',
     '/icon-512.png',
@@ -25,20 +26,20 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME).then((cache) => {
             console.log('[ServiceWorker] Precaching offline application shell & ONNX model...');
             return cache.addAll(OFFLINE_URLS).catch((err) => {
-                console.warn('[ServiceWorker] Some non-critical assets failed to precache:', err);
+                console.warn('[ServiceWorker] Non-critical asset precache note:', err);
             });
         }).then(() => self.skipWaiting())
     );
 });
 
-// Activate Event: Cleanup stale caches
+// Activate Event: Immediately delete all stale caches and claim clients
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keyList) => {
             return Promise.all(
                 keyList.map((key) => {
                     if (key !== CACHE_NAME) {
-                        console.log('[ServiceWorker] Removing old cache version:', key);
+                        console.log('[ServiceWorker] Purging stale cache:', key);
                         return caches.delete(key);
                     }
                 })
@@ -47,11 +48,11 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch Event: Cache-first for model & assets, network-first for live dynamic APIs
+// Fetch Event Strategy
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Dynamic weather / cloud API calls -> Network with graceful offline fallback
+    // 1. Dynamic weather & chat APIs -> Network with offline fallback
     if (url.pathname.startsWith('/api/weather-risk') || url.pathname.startsWith('/api/chat')) {
         event.respondWith(
             fetch(event.request).catch(() => {
@@ -64,22 +65,34 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Static assets, ONNX model & App Shell -> Cache-First Strategy
+    // 2. Large ONNX model, Icons, and CDN libraries -> Cache-First for speed & zero network usage
+    if (url.pathname.endsWith('.onnx') || url.pathname.endsWith('.png') || url.hostname.includes('cdn') || url.hostname.includes('cdnjs')) {
+        event.respondWith(
+            caches.match(event.request).then((cached) => {
+                if (cached) return cached;
+                return fetch(event.request).then((netRes) => {
+                    if (netRes && netRes.status === 200) {
+                        const clone = netRes.clone();
+                        caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+                    }
+                    return netRes;
+                });
+            })
+        );
+        return;
+    }
+
+    // 3. App Shell (HTML, JS, CSS, /api/samples) -> Network-First (Fresh on reload, Cache fallback when offline)
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse;
+        fetch(event.request).then((netRes) => {
+            if (netRes && netRes.status === 200 && event.request.method === 'GET') {
+                const clone = netRes.clone();
+                caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
             }
-            return fetch(event.request).then((networkResponse) => {
-                if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
-                    });
-                }
-                return networkResponse;
-            }).catch(() => {
-                // If offline and requesting root navigation, return cached index.html
+            return netRes;
+        }).catch(() => {
+            return caches.match(event.request).then((cached) => {
+                if (cached) return cached;
                 if (event.request.mode === 'navigate') {
                     return caches.match('/index.html');
                 }

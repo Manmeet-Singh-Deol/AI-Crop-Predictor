@@ -1,5 +1,22 @@
 [
   {
+    "sample_id": "AL-20260823002350-2",
+    "timestamp": "2026-08-23 00:23:50",
+    "source": "farmer_feedback_correction",
+    "crop": "Tomato",
+    "disease": "Early Blight",
+    "predicted_class": "User_Reported_Inaccuracy",
+    "confidence": 50.0,
+    "entropy": 1.0,
+    "margin": 0.0,
+    "uncertainty_score": 50.0,
+    "user_corrected_class": "Tomato___Early Blight",
+    "feedback_notes": "Target lesions are concentric rings, typical of Alternaria solani",
+    "status": "approved_for_training",
+    "image_file": "AL-20260823002350-2.jpg",
+    "reviewed_at": "2026-08-23 00:23:50"
+  },
+  {
     "sample_id": "AL-20260823000358-1",
     "timestamp": "2026-08-23 00:03:58",
     "source": "farmer_feedback_correction",
