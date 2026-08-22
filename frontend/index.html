@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroAI - Crop Disease Diagnosis & Outbreak Prediction Platform</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                            950: '#052e16'
+                        },
+                        amber: { 500: '#f59e0b', 600: '#d97706' },
+                        crimson: { 500: '#ef4444', 600: '#dc2626' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-slate-950">
+
+    <!-- Background decorative gradients -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div class="absolute -top-40 left-1/4 w-96 h-96 bg-brand-600/15 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/3 -right-20 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-20 left-10 w-96 h-96 bg-teal-600/10 rounded-full blur-3xl"></div>
+    </div>
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-40 backdrop-blur-md bg-slate-950/80 border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white text-xl">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span id="txt-app-title" class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-brand-400 bg-clip-text text-transparent font-['Plus_Jakarta_Sans']">
+                            AgroAI
+                        </span>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-400 border border-brand-500/30">
+                            PRO v1.1
+                        </span>
+                    </div>
+                    <p id="txt-app-subtitle" class="text-[11px] text-slate-400 hidden sm:block">Deep Vision Pathology • Grad-CAM Explainability • Weather Outbreak Risk</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2.5">
+                <!-- Language Selector -->
+                <div class="relative">
+                    <select id="lang-selector" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-500 transition cursor-pointer">
+                        <option value="en">🇺🇸 English</option>
+                        <option value="hi">🇮🇳 हिन्दी (Hindi)</option>
+                        <option value="pa">🇮🇳 ਪੰਜਾਬੀ (Punjabi)</option>
+                        <option value="es">🇪🇸 Español</option>
+                        <option value="fr">🇫🇷 Français</option>
+                    </select>
+                </div>
+
+                <div id="system-status-badge" class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+                    <span id="model-status-text">AI Core Ready (41 Classes)</span>
+                </div>
+
+                <button id="btn-export-pdf-nav" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-medium transition shadow-sm disabled:opacity-50" disabled>
+                    <i class="fa-solid fa-file-pdf text-red-400"></i>
+                    <span id="txt-export-pdf-nav">Export PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- 1-Click Sample Specimen Strip -->
+        <section class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 shadow-xl backdrop-blur">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                <div class="flex items-center space-x-2 text-sm font-semibold text-slate-200">
+                    <i class="fa-solid fa-flask-vial text-brand-400"></i>
+                    <span id="txt-sample-strip-title">Instant Test Specimens (1-Click Evaluation):</span>
+                </div>
+                <span class="text-xs text-slate-400">Click any sample to run complete diagnosis instantly</span>
+            </div>
+            
+            <div id="sample-cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Primary Diagnosis Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- LEFT COLUMN: Image Ingestion & Visual Explainability (5 Cols) -->
+            <div class="lg:col-span-5 space-y-6">
+
+                <!-- Ingestion Card -->
+                <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl backdrop-blur">
+                    <!-- Tab Switcher -->
+                    <div class="flex items-center space-x-1 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-medium mb-4">
+                        <button id="tab-btn-upload" class="tab-btn flex-1 py-2 rounded-lg bg-brand-600 text-white font-semibold shadow-sm transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span id="txt-upload-tab">Upload Leaf</span>
+                        </button>
+                        <button id="tab-btn-camera" class="tab-btn flex-1 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-camera"></i>
+                            <span id="txt-camera-tab">Live Camera</span>
+                        </button>
+                    </div>
+
+                    <!-- File Dropzone -->
+                    <div id="dropzone-container" class="relative group">
+                        <input type="file" id="leaf-file-input" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+                        <div id="dropzone-box" class="border-2 border-dashed border-slate-700 group-hover:border-brand-500 rounded-xl p-8 text-center bg-slate-950/40 group-hover:bg-brand-950/10 transition duration-200 flex flex-col items-center justify-center space-y-3 min-h-[220px]">
+                            <div class="w-14 h-14 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center text-2xl group-hover:scale-110 group-hover:bg-brand-500/20 transition duration-300">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+                            <div>
+                                <p id="txt-drag-drop-title" class="text-sm font-semibold text-slate-200">Drag & drop leaf photo here</p>
+                                <p class="text-xs text-slate-400 mt-1">Supports JPG, PNG, WEBP (Max 15MB)</p>
+                            </div>
+                            <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700">
+                                <i class="fa-solid fa-folder-open text-brand-400"></i>
+                                <span id="txt-browse-computer">Browse from Computer</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Live Camera Feed (Hidden by default) -->
+                    <div id="camera-container" class="hidden space-y-3">
+                        <div class="relative rounded-xl overflow-hidden bg-black aspect-video border border-slate-700 flex items-center justify-center">
+                            <video id="webcam-video" autoplay playsinline class="w-full h-full object-cover"></video>
+                            <canvas id="webcam-canvas" class="hidden"></canvas>
+                            <div id="camera-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-xs space-y-2">
+                                <i class="fa-solid fa-video-slash text-2xl"></i>
+                                <span>Click 'Start Camera' below</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button id="btn-start-camera" class="flex-1 py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition flex items-center justify-center space-x-1.5">
+                                <i class="fa-solid fa-power-off text-brand-400"></i>
+                                <span id="txt-start-camera">Start Camera</span>
+                            </button>
+                            <button id="btn-capture-camera" class="flex-1 py-2 px-3 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-semibold text-white transition flex items-center justify-center space-x-1.5 disabled:opacity-50" disabled>
+                                <i class="fa-solid fa-camera"></i>
+                                <span id="txt-capture-diagnose">Capture & Diagnose</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Target Crop Filter / Lock -->
+                    <div class="mt-4 pt-3.5 border-t border-slate-800 flex items-center justify-between gap-2.5">
+                        <div class="flex items-center space-x-1.5 text-xs text-slate-300 font-medium flex-shrink-0">
+                            <i class="fa-solid fa-wheat-awn text-brand-400"></i>
+                            <span>Target Crop:</span>
+                        </div>
+                        <select id="target-crop-select" class="flex-1 bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:border-brand-500 focus:outline-none transition cursor-pointer">
+                            <option value="auto">🔍 Auto-Detect Crop (Default)</option>
+                            <option value="Wheat">🌾 Wheat (Triticum aestivum)</option>
+                            <option value="Cotton">☁️ Cotton (Gossypium hirsutum)</option>
+                            <option value="Coffee">☕ Coffee (Coffea arabica)</option>
+                            <option value="Tea">🍵 Tea (Camellia sinensis)</option>
+                            <option value="Cassava">🥔 Cassava / Yuca (Manihot esculenta)</option>
+                            <option value="Banana">🍌 Banana / Plantain (Musa acuminata)</option>
+                            <option value="Sugarcane">🎋 Sugarcane (Saccharum officinarum)</option>
+                            <option value="Tomato">🍅 Tomato (Solanum lycopersicum)</option>
+                            <option value="Potato">🥔 Potato (Solanum tuberosum)</option>
+                            <option value="Apple">🍎 Apple (Malus domestica)</option>
+                            <option value="Corn">🌽 Corn / Maize (Zea mays)</option>
+                            <option value="Grape">🍇 Grape (Vitis vinifera)</option>
+                            <option value="Rice">🌾 Rice (Oryza sativa)</option>
+                            <option value="Pepper">🫑 Pepper (Capsicum annuum)</option>
+                            <option value="Orange">🍊 Orange / Citrus (Citrus sinensis)</option>
+                            <option value="Peach">🍑 Peach (Prunus persica)</option>
+                            <option value="Squash">🥒 Squash / Cucurbit (Cucurbita pepo)</option>
+                            <option value="Strawberry">🍓 Strawberry (Fragaria ananassa)</option>
+                            <option value="Cherry">🍒 Cherry (Prunus cerasus)</option>
+                            <option value="Soybean">🌱 Soybean (Glycine max)</option>
+                            <option value="Blueberry">🫐 Blueberry</option>
+                            <option value="Raspberry">🍇 Raspberry</option>
+                        </select>
+
+                    </div>
+                </div>
+
+                <!-- Grad-CAM Visual Explainability & Segmentation Viewer -->
+                <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl backdrop-blur space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            </div>
+                            <h3 id="txt-explainable-ai" class="text-sm font-bold text-slate-200">Explainable AI & Vision Maps</h3>
+                        </div>
+                        <span id="gradcam-peak-badge" class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                            Activation: --%
+                        </span>
+                    </div>
+
+                    <!-- View Mode Selector -->
+                    <div class="grid grid-cols-4 gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-medium text-slate-400">
+                        <button class="view-mode-btn py-1.5 rounded-lg active-mode bg-slate-800 text-brand-400 font-semibold" data-mode="blended" id="txt-mode-blended">
+                            Blended
+                        </button>
+                        <button class="view-mode-btn py-1.5 rounded-lg hover:text-slate-200" data-mode="heatmap" id="txt-mode-heatmap">
+                            Heatmap
+                        </button>
+                        <button class="view-mode-btn py-1.5 rounded-lg hover:text-slate-200" data-mode="severity" id="txt-mode-severity">
+                            Lesion Mask
+                        </button>
+                        <button class="view-mode-btn py-1.5 rounded-lg hover:text-slate-200" data-mode="original" id="txt-mode-original">
+                            Original
+                        </button>
+                    </div>
+
+                    <!-- Image Display Box with Dual Layer Smooth Opacity Blending -->
+                    <div class="relative rounded-xl overflow-hidden bg-slate-950 aspect-square border border-slate-800 flex items-center justify-center group" id="display-container">
+                        <!-- Base Original Image Layer -->
+                        <img id="base-display-image" src="" alt="Base Leaf" class="hidden absolute inset-0 w-full h-full object-contain pointer-events-none">
+                        <!-- Overlay Heatmap Layer (Realtime Opacity Blended) -->
+                        <img id="overlay-display-image" src="" alt="Overlay Heatmap" class="hidden absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-75">
+                        <!-- Single Fallback Display Image -->
+                        <img id="main-display-image" src="" alt="Diagnosis Visual" class="hidden w-full h-full object-contain pointer-events-none">
+                        
+                        <!-- Empty Placeholder State -->
+                        <div id="image-empty-state" class="flex flex-col items-center justify-center text-center p-6 space-y-2 text-slate-500">
+                            <i class="fa-solid fa-leaf text-4xl text-slate-700"></i>
+                            <p class="text-xs">No leaf image scanned yet.</p>
+                            <p class="text-[11px] text-slate-600">Upload or select a test sample to generate activation heatmaps.</p>
+                        </div>
+
+                        <!-- Diagnosis Spinner Overlay -->
+                        <div id="diagnosis-spinner" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-3 z-30">
+                            <div class="w-12 h-12 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin"></div>
+                            <span class="text-xs font-semibold text-slate-200 animate-pulse">Running Neural Inference & Grad-CAM...</span>
+                        </div>
+                    </div>
+
+
+                    <!-- Grad-CAM Adjustments Controls -->
+                    <div class="pt-2 border-t border-slate-800/80 space-y-3 text-xs">
+                        <div class="flex items-center justify-between text-slate-400">
+                            <span class="flex items-center space-x-1.5">
+                                <i class="fa-solid fa-sliders text-slate-500"></i>
+                                <span id="txt-blend-opacity">Blend Opacity:</span>
+                            </span>
+                            <span id="opacity-val-label" class="font-mono text-slate-300">55%</span>
+                        </div>
+                        <input type="range" id="blend-opacity-slider" min="10" max="95" value="55" class="w-full accent-brand-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+
+                        <div class="flex items-center justify-between text-slate-400 pt-1">
+                            <span>Colormap Scheme:</span>
+                            <div class="flex items-center space-x-1">
+                                <button class="cmap-btn px-2 py-0.5 rounded bg-brand-600/30 text-brand-300 border border-brand-500/40 text-[10px] font-semibold" data-cmap="JET">JET</button>
+                                <button class="cmap-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px]" data-cmap="INFERNO">INFERNO</button>
+                                <button class="cmap-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px]" data-cmap="TURBO">TURBO</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: Diagnostic Results, Severity & Treatment Hub (7 Cols) -->
+            <div class="lg:col-span-7 space-y-6">
+
+                <!-- Identified Botanical Species & Taxonomy Banner -->
+                <div id="crop-species-card" class="bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 rounded-2xl border border-emerald-500/30 p-4 shadow-xl backdrop-blur flex items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-11 h-11 rounded-xl bg-brand-500/20 text-brand-400 border border-brand-500/40 flex items-center justify-center text-xl flex-shrink-0">
+                            <i class="fa-solid fa-seedling"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Identified Crop Species</span>
+                                <span id="crop-botanical-family" class="text-[10px] px-2 py-0.2 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Family: Solanaceae</span>
+                            </div>
+                            <h3 id="crop-display-name" class="text-base font-bold text-white">Tomato</h3>
+                            <p id="crop-botanical-name" class="text-xs text-slate-400 italic">Solanum lycopersicum</p>
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Species Match</span>
+                        <span id="crop-match-pct" class="text-base font-extrabold text-brand-400 font-mono">--%</span>
+                    </div>
+                </div>
+
+                <!-- Primary Diagnosis Finding Banner -->
+                <div id="diagnosis-result-card" class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur relative overflow-hidden">
+                    <div id="card-glow" class="absolute -right-16 -top-16 w-48 h-48 bg-brand-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div class="space-y-1.5">
+                            <div class="flex items-center space-x-2">
+                                <span id="diag-crop-badge" class="px-2.5 py-0.5 rounded-md bg-brand-500/15 text-brand-400 border border-brand-500/30 text-xs font-bold uppercase tracking-wider">
+                                    Crop
+                                </span>
+                                <span id="diag-pathogen-badge" class="px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-xs font-medium">
+                                    Pathogen Type
+                                </span>
+                            </div>
+                            <h2 id="diag-disease-title" class="text-2xl sm:text-3xl font-extrabold text-white font-['Plus_Jakarta_Sans'] tracking-tight">
+                                Awaiting Leaf Scan...
+                            </h2>
+                            <p id="diag-scientific-name" class="text-xs text-slate-400 italic">
+                                Select or upload an image to begin automated agronomy diagnosis
+                            </p>
+                        </div>
+
+                        <!-- Confidence Gauge Badge -->
+                        <div class="flex flex-col items-start sm:items-end justify-center bg-slate-950/80 px-4 py-3 rounded-xl border border-slate-800 flex-shrink-0">
+                            <span id="txt-confidence-score" class="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Pathology Confidence</span>
+                            <div class="flex items-baseline space-x-1 mt-0.5">
+                                <span id="diag-confidence-val" class="text-2xl font-black text-brand-400 font-mono">--.-</span>
+                                <span class="text-xs text-brand-500/80 font-bold">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Severity Quantification Strip -->
+                    <div class="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        
+                        <!-- Severity Metric -->
+                        <div class="flex items-center space-x-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/60">
+                            <div id="severity-gauge-icon" class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center text-lg flex-shrink-0">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div>
+                                <span id="txt-infection-severity" class="text-[10px] text-slate-400 uppercase font-semibold block">Infection Severity</span>
+                                <span id="severity-pct-label" class="text-base font-bold text-slate-200 font-mono">--%</span>
+                                <span id="severity-stage-badge" class="text-[10px] text-amber-400 font-medium block">Awaiting Data</span>
+                            </div>
+                        </div>
+
+                        <!-- Lesion Count / Area -->
+                        <div class="flex items-center space-x-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/60">
+                            <div class="w-10 h-10 rounded-xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-lg flex-shrink-0">
+                                <i class="fa-solid fa-shapes"></i>
+                            </div>
+                            <div>
+                                <span id="txt-spot-count" class="text-[10px] text-slate-400 uppercase font-semibold block">Lesion Spot Count</span>
+                                <span id="lesion-count-label" class="text-base font-bold text-slate-200 font-mono">--</span>
+                                <span class="text-[10px] text-slate-400 font-medium block">Distinct Contours</span>
+                            </div>
+                        </div>
+
+                        <!-- Urgency Action -->
+                        <div class="flex items-center space-x-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/60">
+                            <div id="urgency-icon" class="w-10 h-10 rounded-xl bg-brand-500/15 text-brand-400 flex items-center justify-center text-lg flex-shrink-0">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <div>
+                                <span id="txt-action-urgency" class="text-[10px] text-slate-400 uppercase font-semibold block">Action Urgency</span>
+                                <span id="urgency-label" class="text-base font-bold text-brand-400 font-mono">Normal</span>
+                                <span class="text-[10px] text-slate-400 font-medium block">Intervention Level</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Top 3 Differential Diagnoses -->
+                    <div class="mt-5 pt-4 border-t border-slate-800/80 space-y-2">
+                        <span id="txt-differential-title" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Top 3 Differential Probabilities</span>
+                        <div id="differential-bars-container" class="space-y-2">
+                            <div class="text-xs text-slate-500 italic">No active scan probabilities.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comprehensive Treatment & Advisory Center -->
+                <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-xl bg-brand-500/15 text-brand-400 flex items-center justify-center text-base">
+                                <i class="fa-solid fa-book-medical"></i>
+                            </div>
+                            <h3 id="txt-treatment-guide" class="text-base font-bold text-white font-['Plus_Jakarta_Sans']">Actionable Treatment & Advisory Guide</h3>
+                        </div>
+                        <button id="btn-export-pdf-card" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-500/20 transition flex items-center space-x-1.5 disabled:opacity-50" disabled>
+                            <i class="fa-solid fa-download"></i>
+                            <span id="txt-download-pdf">Download PDF Report</span>
+                        </button>
+                    </div>
+
+                    <!-- Advisory Navigation Tabs -->
+                    <div class="flex items-center space-x-1 border-b border-slate-800 pb-2 overflow-x-auto text-xs font-medium">
+                        <button class="adv-tab-btn py-1.5 px-3 rounded-lg active-adv bg-slate-800 text-brand-400 font-semibold flex-shrink-0" data-tab="organic" id="txt-tab-organic">
+                            🌿 Organic Controls
+                        </button>
+                        <button class="adv-tab-btn py-1.5 px-3 rounded-lg text-slate-400 hover:text-slate-200 flex-shrink-0" data-tab="chemical" id="txt-tab-chemical">
+                            🧪 Chemical Interventions
+                        </button>
+                        <button class="adv-tab-btn py-1.5 px-3 rounded-lg text-slate-400 hover:text-slate-200 flex-shrink-0" data-tab="cultural" id="txt-tab-cultural">
+                            🚜 Cultural Practices
+                        </button>
+                        <button class="adv-tab-btn py-1.5 px-3 rounded-lg text-slate-400 hover:text-slate-200 flex-shrink-0" data-tab="symptoms" id="txt-tab-symptoms">
+                            🔍 Diagnostic Symptoms
+                        </button>
+                    </div>
+
+                    <!-- Tab Content Container -->
+                    <div id="advisory-content-box" class="min-h-[160px] text-xs text-slate-300 leading-relaxed">
+                        <div class="p-6 text-center text-slate-500">
+                            <i class="fa-solid fa-seedling text-3xl mb-2 text-slate-700"></i>
+                            <p>Diagnostic treatment recommendations will appear here after image analysis.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- NEW SECTION 1: Field Spray Tank & Dosage Calculator -->
+        <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center text-base">
+                        <i class="fa-solid fa-calculator"></i>
+                    </div>
+                    <div>
+                        <h3 id="txt-calculator-title" class="text-base font-bold text-white font-['Plus_Jakarta_Sans']">Field Spray Tank & Dosage Calculator</h3>
+                        <p class="text-xs text-slate-400">Calculate required active chemical mass, spray water volume, and tank refill cycles for your field</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dosage Inputs Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+                <div class="space-y-1">
+                    <label class="text-[11px] text-slate-400 font-semibold uppercase">Field Size</label>
+                    <input type="number" id="calc-field-size" value="5" min="0.1" step="0.5" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:border-brand-500 focus:outline-none font-mono">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[11px] text-slate-400 font-semibold uppercase">Area Unit</label>
+                    <select id="calc-unit" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:border-brand-500 focus:outline-none">
+                        <option value="acres">Acres</option>
+                        <option value="hectares">Hectares</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[11px] text-slate-400 font-semibold uppercase">Dosage Rate (/L)</label>
+                    <input type="number" id="calc-dosage-rate" value="2.5" min="0.1" step="0.1" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:border-brand-500 focus:outline-none font-mono">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[11px] text-slate-400 font-semibold uppercase">Dosage Unit</label>
+                    <select id="calc-dosage-unit" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:border-brand-500 focus:outline-none">
+                        <option value="g">Grams (Powder / WP)</option>
+                        <option value="ml">Milliliters (Liquid / EC)</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[11px] text-slate-400 font-semibold uppercase">Tank Size (L)</label>
+                    <input type="number" id="calc-tank-size" value="15" min="1" step="1" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:border-brand-500 focus:outline-none font-mono">
+                </div>
+            </div>
+
+            <!-- Dosage Output Cards -->
+            <div id="dosage-result-box" class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-slate-950/80 border border-slate-800">
+                <div class="space-y-1">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold block">Total Water Required</span>
+                    <span id="calc-out-water" class="text-lg font-bold text-teal-400 font-mono">900.0 L (237.8 Gal)</span>
+                </div>
+                <div class="space-y-1">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold block">Total Product Formulation</span>
+                    <span id="calc-out-product" class="text-lg font-bold text-amber-400 font-mono">2.25 kg (2250 g)</span>
+                </div>
+                <div class="space-y-1">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold block">Sprayer Refills & Mixing</span>
+                    <span id="calc-out-tanks" class="text-lg font-bold text-brand-400 font-mono">60.0 Tanks (37.5g/tank)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- FULL-WIDTH SECTION: Microclimate Disease Outbreak Risk Forecaster -->
+        <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur space-y-6">
+            
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-base">
+                            <i class="fa-solid fa-cloud-sun-rain"></i>
+                        </div>
+                        <h3 id="txt-weather-title" class="text-lg font-bold text-white font-['Plus_Jakarta_Sans']">Live Microclimate Outbreak Risk Forecaster</h3>
+                    </div>
+                    <p id="txt-weather-subtitle" class="text-xs text-slate-400">Real-time epidemiological risk modeling driven by Open-Meteo microclimate telemetry</p>
+                </div>
+
+                <!-- City Search & Geocoding Bar -->
+                <div class="flex items-center space-x-2 max-w-md w-full">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-location-dot absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                        <input type="text" id="weather-city-input" placeholder="Enter farm city (e.g. Salinas, Punjab, Kent)..." class="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-brand-500 transition">
+                    </div>
+                    <button id="btn-search-weather" class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition flex items-center space-x-1.5 flex-shrink-0">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span id="txt-forecast-btn">Forecast</span>
+                    </button>
+                    <button id="btn-geolocate-weather" title="Use current device location" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs transition flex-shrink-0">
+                        <i class="fa-solid fa-crosshairs text-teal-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Region Tags -->
+            <div class="flex items-center space-x-2 overflow-x-auto text-[11px] pb-1 text-slate-400">
+                <span class="text-slate-500 flex-shrink-0 font-medium">Quick Hubs:</span>
+                <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Salinas Valley, CA">Salinas Valley (USA)</button>
+                <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Punjab, India">Punjab (India)</button>
+                <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Nashik, Maharashtra">Nashik (India)</button>
+                <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Iowa Corn Belt, USA">Iowa Corn Belt</button>
+                <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Kent">Kent (UK)</button>
+                <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Valencia Citrus Groves">Valencia (Spain)</button>
+            </div>
+
+            <!-- Telemetry & Threat Gauges Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                
+                <!-- Microclimate Weather Card -->
+                <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span id="weather-location-label" class="text-xs font-bold text-slate-200 truncate">Salinas Valley, CA</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-teal-400 font-mono">LIVE</span>
+                    </div>
+                    <div class="flex items-baseline space-x-2">
+                        <span id="weather-temp-val" class="text-3xl font-black text-white font-mono">--</span>
+                        <span class="text-sm font-semibold text-slate-400">°C</span>
+                        <span id="weather-humidity-val" class="text-xs text-slate-400 ml-auto font-mono">RH: --%</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-400 pt-2 border-t border-slate-800/60">
+                        <div>
+                            <span>Rain: </span>
+                            <span id="weather-rain-val" class="text-slate-200 font-semibold font-mono">-- mm</span>
+                        </div>
+                        <div>
+                            <span>Wind: </span>
+                            <span id="weather-wind-val" class="text-slate-200 font-semibold font-mono">-- km/h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pathogen Risk 1: Fungal -->
+                <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-300 flex items-center space-x-1.5">
+                            <i class="fa-solid fa-bacterium text-amber-400"></i>
+                            <span id="txt-fungal-risk">Fungal Epidemic</span>
+                        </span>
+                        <span id="risk-fungal-val" class="font-bold text-amber-400 font-mono">--%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div id="risk-fungal-bar" class="bg-amber-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p class="text-[10px] text-slate-500">Blight, Mildew, Rust, Scab sporulation conditions</p>
+                </div>
+
+                <!-- Pathogen Risk 2: Bacterial -->
+                <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-300 flex items-center space-x-1.5">
+                            <i class="fa-solid fa-viruses text-crimson-500"></i>
+                            <span id="txt-bacterial-risk">Bacterial Epidemic</span>
+                        </span>
+                        <span id="risk-bacterial-val" class="font-bold text-crimson-500 font-mono">--%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div id="risk-bacterial-bar" class="bg-crimson-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p class="text-[10px] text-slate-500">Bacterial spot, canker & vascular wilts</p>
+                </div>
+
+                <!-- Overall Threat Banner -->
+                <div id="overall-threat-box" class="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span id="txt-overall-threat" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overall Outbreak Risk</span>
+                        <span id="overall-threat-level" class="text-xs font-extrabold text-brand-400">Low Risk</span>
+                    </div>
+                    <div class="my-1">
+                        <span id="overall-threat-score" class="text-2xl font-black text-white font-mono">--</span>
+                        <span class="text-xs text-slate-400 font-semibold">/ 100 Index</span>
+                    </div>
+                    <p id="overall-threat-summary" class="text-[10px] text-slate-400 line-clamp-2 leading-tight">
+                        Analyzing weather conditions...
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- 5-Day Outbreak Projection Cards -->
+            <div class="space-y-2 pt-2 border-t border-slate-800/60">
+                <span id="txt-five-day-title" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">5-Day Outbreak Projection & Preemptive Spray Window</span>
+                <div id="forecast-cards-container" class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- NEW SECTION 2: Farm Scouting Audit Log & Inspection History -->
+        <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center text-base">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <h3 id="txt-history-title" class="text-base font-bold text-white font-['Plus_Jakarta_Sans']">Farm Scouting History & Inspection Log</h3>
+                        <p class="text-xs text-slate-400">Chronological record of all crop leaf scans, infection metrics, and field locations</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="btn-export-csv" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                        <span id="txt-export-csv">Export CSV</span>
+                    </button>
+                    <button id="btn-clear-history" class="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-medium border border-red-800/50 transition">
+                        <span id="txt-clear-history">Clear Log</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- History Cards Container -->
+            <div id="history-cards-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="col-span-full py-8 text-center text-slate-500 text-xs">
+                    No field scans logged yet. Complete a diagnosis to start building your crop audit log.
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 bg-slate-950 py-6 mt-12 text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center space-x-2">
+                <span class="font-bold text-slate-400">AgroAI Crop Predictor</span>
+                <span>•</span>
+                <span>Powered by Deep Vision + Microclimate Open-Meteo</span>
+            </div>
+            <div class="text-[11px] text-slate-600">
+                Designed for Smart Precision Farming & Crop Protection
+            </div>
+        </div>
+    </footer>
+
+    <!-- ========================================================= -->
+    <!-- AI AGRONOMIST CHATBOT FLOATING WIDGET & MODAL WINDOW -->
+    <!-- ========================================================= -->
+
+    <!-- Floating Chatbot Launcher Button -->
+    <div id="ai-chatbot-launcher" class="fixed bottom-6 right-6 z-50 flex items-center">
+        <button id="btn-open-chatbot" class="chat-launcher-btn flex items-center space-x-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-600 via-brand-600 to-teal-600 text-white font-bold text-xs shadow-2xl hover:from-emerald-500 hover:to-teal-500 transition-all transform hover:scale-105 active:scale-95 group border border-emerald-400/30">
+            <div class="relative flex items-center justify-center w-6 h-6 rounded-full bg-white/20 text-white">
+                <i class="fa-solid fa-robot text-sm"></i>
+                <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-300 animate-ping"></span>
+                <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-slate-950"></span>
+            </div>
+            <span id="txt-chatbot-btn-label" class="font-['Plus_Jakarta_Sans'] tracking-wide">AI Agronomist</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 font-mono border border-emerald-500/40">ONLINE</span>
+        </button>
+    </div>
+
+    <!-- Interactive AI Chatbot Window -->
+    <div id="ai-chatbot-window" class="chat-hidden fixed bottom-6 right-4 sm:right-6 z-50 w-[92vw] sm:w-[410px] h-[570px] max-h-[85vh] bg-slate-950/95 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        
+        <!-- Chat Header -->
+        <div class="px-4 py-3.5 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center space-x-3">
+                <div class="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 text-base">
+                    <i class="fa-solid fa-seedling"></i>
+                    <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900"></span>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-1.5">
+                        <h4 class="text-sm font-bold text-white font-['Plus_Jakarta_Sans'] leading-none">AgroBot AI</h4>
+                        <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">AGRONOMIST</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 leading-tight mt-0.5">Crop Pathology, Pests & Dosage Expert</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-1">
+                <button id="btn-chat-clear" title="Clear Conversation" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition text-xs">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+                <button id="btn-chat-close" title="Minimize Chat" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition text-sm">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Diagnostic Context Banner -->
+        <div id="chat-context-banner" class="px-3.5 py-1.5 bg-emerald-950/40 border-b border-emerald-800/40 flex items-center justify-between text-[11px] text-emerald-300">
+            <div class="flex items-center space-x-1.5 truncate">
+                <i class="fa-solid fa-microscope text-[10px] text-emerald-400"></i>
+                <span id="chat-context-text" class="truncate font-medium">🌾 General Agronomic Consulting</span>
+            </div>
+            <span id="chat-context-badge" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-900/60 text-emerald-300 flex-shrink-0">READY</span>
+        </div>
+
+        <!-- Chat Messages Container -->
+        <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs">
+            <!-- Initial Assistant Welcome Bubble -->
+            <div class="flex items-start space-x-2.5">
+                <div class="w-6 h-6 rounded-lg bg-emerald-600/30 text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs mt-0.5 border border-emerald-500/30">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div class="chat-bubble-assistant space-y-1.5 max-w-[88%]">
+                    <p>👋 <strong>Hello! I am your AI Agronomist & Crop Protection Specialist.</strong></p>
+                    <p>Ask me anything about crop diseases, market best-selling chemical & insecticide brands (<em>Syngenta, Bayer, FMC, Corteva, BASF</em>), organic bio-controls, spray tank dosages, and weather safety.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Suggested Quick Chips -->
+        <div class="px-3 pt-2 pb-1 bg-slate-950 border-t border-slate-800/60 flex-shrink-0">
+            <div id="chat-suggested-chips" class="flex items-center space-x-1.5 overflow-x-auto pb-1.5 scrollbar-none text-[10.5px]">
+                <button class="chat-chip-btn px-2.5 py-1 rounded-full bg-slate-900 hover:bg-emerald-900/60 text-slate-300 hover:text-emerald-200 border border-slate-800 hover:border-emerald-700/60 transition whitespace-nowrap flex-shrink-0" data-msg="What are the best chemical brands for this disease?">
+                    🧪 Chemical Best Sellers
+                </button>
+                <button class="chat-chip-btn px-2.5 py-1 rounded-full bg-slate-900 hover:bg-emerald-900/60 text-slate-300 hover:text-emerald-200 border border-slate-800 hover:border-emerald-700/60 transition whitespace-nowrap flex-shrink-0" data-msg="Recommend organic and biological treatments">
+                    🌿 Organic Remedies
+                </button>
+                <button class="chat-chip-btn px-2.5 py-1 rounded-full bg-slate-900 hover:bg-emerald-900/60 text-slate-300 hover:text-emerald-200 border border-slate-800 hover:border-emerald-700/60 transition whitespace-nowrap flex-shrink-0" data-msg="How to calculate spray tank dosage?">
+                    📏 Dosage Calculator
+                </button>
+                <button class="chat-chip-btn px-2.5 py-1 rounded-full bg-slate-900 hover:bg-emerald-900/60 text-slate-300 hover:text-emerald-200 border border-slate-800 hover:border-emerald-700/60 transition whitespace-nowrap flex-shrink-0" data-msg="Can I spray in current weather conditions?">
+                    🌧️ Weather Spray Window
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <div class="p-3 bg-slate-900/90 border-t border-slate-800 flex-shrink-0">
+            <form id="chat-input-form" class="flex items-center space-x-2">
+                <input 
+                    type="text" 
+                    id="chat-input-field" 
+                    placeholder="Ask about crop health, brands, dosages, pests..." 
+                    class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                    autocomplete="off"
+                />
+                <button 
+                    type="submit" 
+                    id="chat-send-btn" 
+                    class="p-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold transition shadow-md shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center w-9 h-9 flex-shrink-0"
+                >
+                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+/* AgroAI Custom Styling & Glassmorphic Accents */
+
+@layer utilities {
+    .backdrop-blur {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* View Mode Tabs */
+.view-mode-btn.active-mode {
+    background-color: #1e293b;
+    color: #4ade80;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Advisory Tabs */
+.adv-tab-btn.active-adv {
+    background-color: #1e293b;
+    color: #4ade80;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Custom range slider thumb */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #22c55e;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #22c55e;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    border: none;
+}
+
+/* Pulse Glow Animation */
+@keyframes subtle-pulse {
+    0%, 100% {
+        opacity: 0.2;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.35;
+        transform: scale(1.05);
+    }
+}
+
+.animate-glow {
+    animation: subtle-pulse 4s ease-in-out infinite;
+}
+
+/* Transitions */
+.transition-smooth {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Chemical table custom scroll */
+.chem-table-container {
+    overflow-x: auto;
+}
+
+.chem-table-container table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.chem-table-container th {
+    background-color: #064e3b;
+    color: #f0fdf4;
+    text-align: left;
+    padding: 8px 10px;
+    font-weight: 600;
+}
+
+.chem-table-container td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #1e293b;
+    color: #cbd5e1;
+}
+
+.chem-table-container tr:nth-child(even) {
+    background-color: #020617;
+}
+
+.chem-table-container tr:hover {
+    background-color: #0f172a;
+}
+
+/* =========================================================
+   AI Agronomist Chatbot Widget & Message Styles
+   ========================================================= */
+
+/* Launcher Floating Button Pulse */
+@keyframes bot-float-glow {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.4), 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(16, 185, 129, 0.7), 0 10px 30px -5px rgba(16, 185, 129, 0.3);
+    }
+}
+
+.chat-launcher-btn {
+    animation: bot-float-glow 3s ease-in-out infinite;
+}
+
+/* Chat Window Modal Transitions */
+#ai-chatbot-window {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: bottom right;
+}
+
+#ai-chatbot-window.chat-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.92) translateY(20px);
+}
+
+#ai-chatbot-window.chat-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
+}
+
+/* Chat Messages Bubble Formatting */
+.chat-bubble-assistant {
+    background-color: #0f172a;
+    border: 1px solid #1e293b;
+    border-left: 3px solid #10b981;
+    color: #e2e8f0;
+    border-radius: 0.85rem;
+    border-top-left-radius: 0.2rem;
+    padding: 0.75rem 0.9rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.chat-bubble-assistant h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #34d399;
+    margin-bottom: 0.25rem;
+}
+
+.chat-bubble-assistant h4 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #38bdf8;
+    margin-top: 0.4rem;
+    margin-bottom: 0.2rem;
+}
+
+.chat-bubble-assistant ul {
+    margin-left: 0.85rem;
+    list-style-type: disc;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.chat-bubble-assistant li {
+    margin-bottom: 0.2rem;
+}
+
+.chat-bubble-assistant strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.chat-bubble-assistant code {
+    background-color: #1e293b;
+    color: #4ade80;
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.25rem;
+    font-size: 0.72rem;
+    font-family: monospace;
+}
+
+.chat-bubble-assistant blockquote {
+    border-left: 2px solid #3b82f6;
+    background-color: #1e293b/40;
+    padding: 0.3rem 0.5rem;
+    margin-top: 0.35rem;
+    border-radius: 0.25rem;
+    font-size: 0.73rem;
+    color: #94a3b8;
+}
+
+.chat-bubble-user {
+    background: linear-gradient(135deg, #059669, #0d9488);
+    color: #ffffff;
+    border-radius: 0.85rem;
+    border-top-right-radius: 0.2rem;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+}
+
+/* Typing Dots Animation */
+@keyframes typing-bounce {
+    0%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+}
+
+.typing-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    background-color: #34d399;
+    border-radius: 50%;
+    margin: 0 1.5px;
+    animation: typing-bounce 1.2s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0s; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+

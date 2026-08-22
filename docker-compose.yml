@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  agroai-app:
+    build: .
+    container_name: agroai_crop_predictor
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=postgresql://agro_user:agro_password@postgres-db:5432/agro_db
+    depends_on:
+      - postgres-db
+
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: agroai_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=agro_user
+      - POSTGRES_PASSWORD=agro_password
+      - POSTGRES_DB=agro_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
