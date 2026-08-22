@@ -11,18 +11,40 @@ import httpx
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
+def _load_env_file():
+    """Load key-value pairs from .env file into os.environ if present."""
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip().strip("'\"")
+                        if k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+_load_env_file()
+
+def get_supabase_url() -> str:
+    return os.environ.get("SUPABASE_URL", "").rstrip("/")
+
+def get_supabase_key() -> str:
+    return os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
 
 def is_supabase_configured() -> bool:
     """Check whether Supabase environment variables are present and non-empty."""
-    return bool(SUPABASE_URL and SUPABASE_KEY)
+    return bool(get_supabase_url() and get_supabase_key())
 
 def _get_headers() -> Dict[str, str]:
     """Generate standard Supabase authentication and PostgREST headers."""
+    key = get_supabase_key()
     return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
@@ -35,15 +57,17 @@ def upload_leaf_to_supabase_storage(image_b64: str, file_name: str) -> Optional[
     if not is_supabase_configured() or not image_b64:
         return None
         
+    url = get_supabase_url()
+    key = get_supabase_key()
     try:
         if "," in image_b64:
             image_b64 = image_b64.split(",")[1]
         raw_bytes = base64.b64decode(image_b64)
         
-        storage_url = f"{SUPABASE_URL}/storage/v1/object/crop-scans/{file_name}"
+        storage_url = f"{url}/storage/v1/object/crop-scans/{file_name}"
         headers = {
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
             "Content-Type": "image/jpeg",
             "x-upsert": "true"
         }
@@ -51,7 +75,7 @@ def upload_leaf_to_supabase_storage(image_b64: str, file_name: str) -> Optional[
         with httpx.Client(timeout=8.0) as client:
             res = client.post(storage_url, content=raw_bytes, headers=headers)
             if res.status_code in [200, 201]:
-                return f"{SUPABASE_URL}/storage/v1/object/public/crop-scans/{file_name}"
+                return f"{url}/storage/v1/object/public/crop-scans/{file_name}"
             else:
                 print(f"[Supabase Storage] Notice: upload status {res.status_code}: {res.text}")
     except Exception as e:
@@ -66,6 +90,7 @@ def sync_scan_to_supabase(scan_data: Dict[str, Any], thumbnail_b64: Optional[str
     if not is_supabase_configured():
         return False
         
+    url = get_supabase_url()
     try:
         image_url = None
         if thumbnail_b64 and len(thumbnail_b64) > 50:
@@ -85,7 +110,7 @@ def sync_scan_to_supabase(scan_data: Dict[str, Any], thumbnail_b64: Optional[str
             "image_url": image_url or scan_data.get("thumbnail", "")
         }
         
-        endpoint = f"{SUPABASE_URL}/rest/v1/scouting_history"
+        endpoint = f"{url}/rest/v1/scouting_history"
         with httpx.Client(timeout=6.0) as client:
             res = client.post(endpoint, json=row, headers=_get_headers())
             if res.status_code in [200, 201]:
@@ -104,8 +129,9 @@ def fetch_scans_from_supabase(limit: int = 100) -> Optional[List[Dict[str, Any]]
     if not is_supabase_configured():
         return None
         
+    url = get_supabase_url()
     try:
-        endpoint = f"{SUPABASE_URL}/rest/v1/scouting_history?select=*&order=created_at.desc&limit={limit}"
+        endpoint = f"{url}/rest/v1/scouting_history?select=*&order=created_at.desc&limit={limit}"
         with httpx.Client(timeout=6.0) as client:
             res = client.get(endpoint, headers=_get_headers())
             if res.status_code == 200:
@@ -137,8 +163,9 @@ def delete_scan_from_supabase(scan_id: str) -> bool:
     if not is_supabase_configured():
         return False
         
+    url = get_supabase_url()
     try:
-        endpoint = f"{SUPABASE_URL}/rest/v1/scouting_history?scan_id=eq.{scan_id}"
+        endpoint = f"{url}/rest/v1/scouting_history?scan_id=eq.{scan_id}"
         with httpx.Client(timeout=6.0) as client:
             res = client.delete(endpoint, headers=_get_headers())
             return res.status_code in [200, 204]
@@ -151,6 +178,7 @@ def sync_feedback_to_supabase(fb_data: Dict[str, Any]) -> bool:
     if not is_supabase_configured():
         return False
         
+    url = get_supabase_url()
     try:
         row = {
             "scan_id": fb_data.get("scan_id"),
@@ -160,7 +188,7 @@ def sync_feedback_to_supabase(fb_data: Dict[str, Any]) -> bool:
             "corrected_disease": fb_data.get("corrected_disease", ""),
             "comments": fb_data.get("comments", "")
         }
-        endpoint = f"{SUPABASE_URL}/rest/v1/farmer_feedback"
+        endpoint = f"{url}/rest/v1/farmer_feedback"
         with httpx.Client(timeout=6.0) as client:
             res = client.post(endpoint, json=row, headers=_get_headers())
             return res.status_code in [200, 201]
