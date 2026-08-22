@@ -1,13 +1,22 @@
 # 🌿 AgroAI: AI-Powered Crop Disease Diagnosis & Agronomist Platform
 
+[![Live App Demo](https://img.shields.io/badge/🚀%20Live%20Demo-ai--crop--predictor-00c7b7?style=for-the-badge&logo=render&logoColor=white)](https://ai-crop-predictor-ed0k.onrender.com)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-EE4C2C.svg)](https://pytorch.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Storage-3ECF8E.svg)](https://supabase.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Manmeet-Singh-Deol/AI-Crop-Predictor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > An enterprise-grade, end-to-end full-stack AI platform for plant pathology diagnosis, rotation-invariant leaf morphology classification, Grad-CAM visual explainability, infection severity scoring, microclimate disease forecasting, tank dosage calculations, and conversational AI agronomy advisory.
+
+---
+
+## 🌐 Live Production Application
+👉 **[https://ai-crop-predictor-ed0k.onrender.com](https://ai-crop-predictor-ed0k.onrender.com)**
+
+*Access the full full-stack platform live from any desktop, tablet, or smartphone browser.*
 
 ---
 
