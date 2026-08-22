@@ -15,9 +15,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install Python dependencies using lightweight CPU-only PyTorch wheels (avoids 2.5GB CUDA bloat)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision && \
+    pip install --no-cache-dir opencv-python-headless fastapi "uvicorn[standard]" pillow reportlab httpx python-multipart numpy
 
 # Copy backend, frontend, model weights, and application files
 COPY backend ./backend
