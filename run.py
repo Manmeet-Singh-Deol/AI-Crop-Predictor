@@ -68,24 +68,26 @@ def main():
     
     import uvicorn
     
-    port = find_available_port(8000)
-    host = "127.0.0.1"
-    url = f"http://{host}:{port}"
+    # In cloud environments (e.g. Render, Railway, Docker), listen on 0.0.0.0 and PORT env
+    port = int(os.environ.get("PORT", 8000))
+    host = "0.0.0.0"
+    url = f"http://localhost:{port}"
     
-    print(f"\n[Launcher] Starting AgroAI Server at: {url}")
+    print(f"\n[Launcher] Starting AgroAI Server at: http://{host}:{port}")
     print(f"[Launcher] Press CTRL+C to stop the server.\n")
     
-    # Launch browser after a brief delay
-    def open_browser():
-        time.sleep(1.2)
-        try:
-            webbrowser.open(url)
-            print(f"[Launcher] Opened browser at {url}")
-        except Exception as e:
-            print(f"[Launcher] Could not automatically open browser: {e}")
-            
-    import threading
-    threading.Thread(target=open_browser, daemon=True).start()
+    # Launch browser only on local interactive desktops
+    if "PORT" not in os.environ and sys.platform == "win32":
+        def open_browser():
+            time.sleep(1.2)
+            try:
+                webbrowser.open(url)
+                print(f"[Launcher] Opened browser at {url}")
+            except Exception as e:
+                print(f"[Launcher] Could not automatically open browser: {e}")
+                
+        import threading
+        threading.Thread(target=open_browser, daemon=True).start()
     
     # Run Uvicorn server
     uvicorn.run("backend.main:app", host=host, port=port, log_level="info")

@@ -346,7 +346,16 @@ async def submit_feedback_endpoint(payload: FeedbackRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Feedback submission error: {str(e)}")
 
-# Mount frontend static directory
+# Serve frontend index.html and static assets
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+
+@app.get("/")
+async def serve_root():
+    """Explicit root route to serve main frontend single-page application."""
+    index_file = os.path.join(frontend_dir, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return {"status": "online", "service": "AgroAI Crop Disease Predictor"}
+
 if os.path.exists(frontend_dir):
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
