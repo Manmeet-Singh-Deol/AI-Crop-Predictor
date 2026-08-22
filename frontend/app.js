@@ -18,7 +18,13 @@ const state = {
     translations: {},
     webcamStream: null,
     isLoading: false,
-    lastScannedImage: null
+    lastScannedImage: null,
+    
+    // Voice-First Interaction State
+    isListening: false,
+    voiceReadAloud: true,
+    speechRecognition: null,
+    activeSpeechUtterance: null
 };
 
 // DOM Elements Cache
@@ -116,11 +122,16 @@ const DOM = {
     btnExportCsv: document.getElementById('btn-export-csv'),
     btnClearHistory: document.getElementById('btn-clear-history'),
     
-    // AI Agronomist Chatbot
+    // AI Agronomist Chatbot & Voice Controls
     btnOpenChatbot: document.getElementById('btn-open-chatbot'),
     aiChatbotWindow: document.getElementById('ai-chatbot-window'),
     btnChatClose: document.getElementById('btn-chat-close'),
     btnChatClear: document.getElementById('btn-chat-clear'),
+    btnVoiceToggle: document.getElementById('btn-voice-toggle'),
+    btnVoiceMic: document.getElementById('btn-voice-mic'),
+    btnCancelVoice: document.getElementById('btn-cancel-voice'),
+    voiceListeningBar: document.getElementById('voice-listening-bar'),
+    voiceListeningLabel: document.getElementById('voice-listening-label'),
     chatContextBanner: document.getElementById('chat-context-banner'),
     chatContextText: document.getElementById('chat-context-text'),
     chatContextBadge: document.getElementById('chat-context-badge'),
@@ -1047,13 +1058,15 @@ function setupEventListeners() {
         }
     });
 
-    // Quick City buttons
-    DOM.quickCityBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            DOM.weatherCityInput.value = btn.dataset.city;
-            fetchWeatherRisk(btn.dataset.city);
+    // Language Switcher
+    if (DOM.langSelector) {
+        DOM.langSelector.addEventListener('change', (e) => {
+            changeLanguage(e.target.value);
+            stopSpeaking();
+            stopVoiceRecognition();
         });
-    });
+    }
+}
 
 // =========================================================
 // AI Agronomist Chatbot Controller
@@ -1137,6 +1150,182 @@ function formatChatMarkdown(text) {
     return html;
 }
 
+// --- Voice Engine (Speech-to-Text & Text-to-Speech) ---
+function getLanguageLocale(lang) {
+    const map = {
+        'en': 'en-IN',
+        'hi': 'hi-IN',
+        'pa': 'pa-IN',
+        'es': 'es-ES',
+        'fr': 'fr-FR'
+    };
+    return map[lang] || 'en-US';
+}
+
+function cleanMarkdownForSpeech(mdText) {
+    if (!mdText) return "";
+    return mdText
+        .replace(/[*#_`>~]/g, '')
+        .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+        .replace(/<[^>]*>/g, '')
+        .replace(/\n+/g, '. ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+function speakText(text) {
+    if (!('speechSynthesis' in window)) return;
+    try {
+        window.speechSynthesis.cancel();
+        const clean = cleanMarkdownForSpeech(text);
+        if (!clean) return;
+        
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = getLanguageLocale(state.currentLang);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        
+        const voices = window.speechSynthesis.getVoices();
+        const targetLocale = getLanguageLocale(state.currentLang).toLowerCase();
+        const matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(state.currentLang.toLowerCase()) || v.lang.toLowerCase() === targetLocale);
+        if (matchedVoice) {
+            utterance.voice = matchedVoice;
+        }
+        
+        state.activeSpeechUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
+    } catch (e) {
+        console.warn("[VoiceEngine] TTS error:", e);
+    }
+}
+
+function stopSpeaking() {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+function toggleVoiceReadAloud() {
+    state.voiceReadAloud = !state.voiceReadAloud;
+    if (DOM.btnVoiceToggle) {
+        if (state.voiceReadAloud) {
+            DOM.btnVoiceToggle.innerHTML = '<i class="fa-solid fa-volume-high text-emerald-400"></i>';
+            DOM.btnVoiceToggle.title = "Voice Read Aloud: Enabled";
+            showToast("Voice speech enabled", "success");
+        } else {
+            stopSpeaking();
+            DOM.btnVoiceToggle.innerHTML = '<i class="fa-solid fa-volume-xmark text-slate-500"></i>';
+            DOM.btnVoiceToggle.title = "Voice Read Aloud: Muted";
+            showToast("Voice speech muted", "info");
+        }
+    }
+}
+
+function initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        return null;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    
+    recognition.onstart = () => {
+        state.isListening = true;
+        stopSpeaking();
+        if (DOM.btnVoiceMic) {
+            DOM.btnVoiceMic.classList.add('mic-recording');
+        }
+        if (DOM.voiceListeningBar) {
+            DOM.voiceListeningBar.classList.remove('hidden');
+            const langName = {
+                'en': 'English',
+                'hi': 'Hindi (हिंदी)',
+                'pa': 'Punjabi (ਪੰਜਾਬੀ)',
+                'es': 'Spanish (Español)',
+                'fr': 'French (Français)'
+            }[state.currentLang] || 'English';
+            if (DOM.voiceListeningLabel) {
+                DOM.voiceListeningLabel.textContent = `🎙️ Listening in ${langName}... Speak now`;
+            }
+        }
+    };
+    
+    recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+        }
+        if (DOM.chatInputField) {
+            DOM.chatInputField.value = transcript;
+        }
+        if (event.results[0].isFinal) {
+            setTimeout(() => {
+                if (transcript.trim().length > 0) {
+                    sendChatMessage(transcript.trim());
+                }
+            }, 400);
+        }
+    };
+    
+    recognition.onerror = (event) => {
+        console.warn("[VoiceEngine] STT Error:", event.error);
+        stopVoiceRecognition();
+        if (event.error === 'not-allowed') {
+            showToast("Microphone access denied. Please allow mic access in browser.", "warning");
+        } else if (event.error !== 'no-speech') {
+            showToast(`Voice input error: ${event.error}`, "warning");
+        }
+    };
+    
+    recognition.onend = () => {
+        stopVoiceRecognition();
+    };
+    
+    return recognition;
+}
+
+function startVoiceRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        showToast("Voice recognition is not supported in this browser. Please use Chrome, Edge, or Safari.", "warning");
+        return;
+    }
+    
+    if (state.isListening) {
+        stopVoiceRecognition();
+        return;
+    }
+    
+    try {
+        if (!state.speechRecognition) {
+            state.speechRecognition = initSpeechRecognition();
+        }
+        if (state.speechRecognition) {
+            state.speechRecognition.lang = getLanguageLocale(state.currentLang);
+            state.speechRecognition.start();
+        }
+    } catch (e) {
+        console.warn("[VoiceEngine] Failed to start recognition:", e);
+        stopVoiceRecognition();
+    }
+}
+
+function stopVoiceRecognition() {
+    state.isListening = false;
+    if (state.speechRecognition) {
+        try { state.speechRecognition.stop(); } catch (e) {}
+    }
+    if (DOM.btnVoiceMic) {
+        DOM.btnVoiceMic.classList.remove('mic-recording');
+    }
+    if (DOM.voiceListeningBar) {
+        DOM.voiceListeningBar.classList.add('hidden');
+    }
+}
+
 function appendChatMessage(role, content) {
     if (!DOM.chatMessagesContainer) return;
     const msgDiv = document.createElement('div');
@@ -1151,15 +1340,27 @@ function appendChatMessage(role, content) {
             </div>
         `;
     } else {
-        msgDiv.className = 'flex items-start space-x-2.5';
+        msgDiv.className = 'flex items-start space-x-2.5 group';
+        const rawEscaped = encodeURIComponent(content);
         msgDiv.innerHTML = `
             <div class="w-6 h-6 rounded-lg bg-emerald-600/30 text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs mt-0.5 border border-emerald-500/30">
                 <i class="fa-solid fa-robot"></i>
             </div>
-            <div class="chat-bubble-assistant space-y-1.5 max-w-[88%]">
+            <div class="chat-bubble-assistant space-y-1.5 max-w-[88%] relative">
+                <div class="flex items-center justify-between border-b border-slate-800/60 pb-1 mb-1">
+                    <span class="text-[9.5px] font-bold text-emerald-400 uppercase tracking-wider">AgroBot Advisory</span>
+                    <button class="btn-speak-msg text-slate-400 hover:text-emerald-300 text-xs px-1.5 py-0.5 rounded hover:bg-slate-800 transition" onclick="speakText(decodeURIComponent('${rawEscaped}'))" title="Read Aloud">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </button>
+                </div>
                 ${formatChatMarkdown(content)}
             </div>
         `;
+        
+        // Auto-speak if enabled
+        if (state.voiceReadAloud && !state.isListening) {
+            speakText(content);
+        }
     }
     DOM.chatMessagesContainer.appendChild(msgDiv);
     DOM.chatMessagesContainer.scrollTop = DOM.chatMessagesContainer.scrollHeight;
@@ -1171,6 +1372,7 @@ async function sendChatMessage(messageText) {
     const text = messageText || (DOM.chatInputField ? DOM.chatInputField.value.trim() : '');
     if (!text) return;
     
+    stopVoiceRecognition();
     if (DOM.chatInputField) DOM.chatInputField.value = '';
     appendChatMessage('user', text);
     
@@ -1243,6 +1445,7 @@ async function sendChatMessage(messageText) {
 
 function clearChatHistory() {
     state.chatHistory = [];
+    stopSpeaking();
     DOM.chatMessagesContainer.innerHTML = `
         <div class="flex items-start space-x-2.5">
             <div class="w-6 h-6 rounded-lg bg-emerald-600/30 text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs mt-0.5 border border-emerald-500/30">
@@ -1250,7 +1453,7 @@ function clearChatHistory() {
             </div>
             <div class="chat-bubble-assistant space-y-1.5 max-w-[88%]">
                 <p>👋 <strong>Hello! I am your AI Agronomist & Crop Protection Specialist.</strong></p>
-                <p>Conversation reset. Ask me anything about crop diseases, commercial brands, organic treatments, or spray tank calculations.</p>
+                <p>Conversation reset. Ask me anything or tap the <strong>🎙️ Microphone</strong> to speak directly.</p>
             </div>
         </div>
     `;
@@ -1280,10 +1483,23 @@ if (DOM.btnOpenChatbot) {
     DOM.btnOpenChatbot.addEventListener('click', () => toggleChatbot(true));
 }
 if (DOM.btnChatClose) {
-    DOM.btnChatClose.addEventListener('click', () => toggleChatbot(false));
+    DOM.btnChatClose.addEventListener('click', () => {
+        stopSpeaking();
+        stopVoiceRecognition();
+        toggleChatbot(false);
+    });
 }
 if (DOM.btnChatClear) {
     DOM.btnChatClear.addEventListener('click', clearChatHistory);
+}
+if (DOM.btnVoiceToggle) {
+    DOM.btnVoiceToggle.addEventListener('click', toggleVoiceReadAloud);
+}
+if (DOM.btnVoiceMic) {
+    DOM.btnVoiceMic.addEventListener('click', startVoiceRecognition);
+}
+if (DOM.btnCancelVoice) {
+    DOM.btnCancelVoice.addEventListener('click', stopVoiceRecognition);
 }
 if (DOM.chatInputForm) {
     DOM.chatInputForm.addEventListener('submit', (e) => {
