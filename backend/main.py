@@ -281,6 +281,18 @@ async def export_history_csv_endpoint():
         headers={"Content-Disposition": 'attachment; filename="AgroAI_Scout_History.csv"'}
     )
 
+@app.get("/api/supabase/status")
+async def supabase_status_endpoint():
+    """Check Supabase cloud PostgreSQL connection status."""
+    from backend.supabase_client import is_supabase_configured, SUPABASE_URL
+    configured = is_supabase_configured()
+    return {
+        "supabase_connected": configured,
+        "supabase_url": SUPABASE_URL if configured else "Not configured (Using Local File Store)",
+        "tables": ["scouting_history", "farmer_feedback"],
+        "storage_bucket": "crop-scans"
+    }
+
 @app.get("/api/i18n/{lang}")
 async def get_i18n_endpoint(lang: str):
     """Get language translation dictionary."""

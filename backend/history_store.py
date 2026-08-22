@@ -10,6 +10,14 @@ import io
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+from backend.supabase_client import (
+    is_supabase_configured,
+    sync_scan_to_supabase,
+    fetch_scans_from_supabase,
+    delete_scan_from_supabase,
+    sync_feedback_to_supabase
+)
+
 HISTORY_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scout_history.json")
 
 def _load_raw_history() -> List[Dict[str, Any]]:
@@ -39,7 +47,7 @@ def add_scan_entry(
     location: str = "Target Farm",
     thumbnail: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Add a new diagnosis scan to the persistent history."""
+    """Add a new diagnosis scan to the persistent history (Local + Supabase)."""
     entries = _load_raw_history()
     
     new_entry = {
@@ -55,18 +63,30 @@ def add_scan_entry(
         "thumbnail": thumbnail or ""
     }
     
-    # Keep up to 100 most recent records
+    # Keep up to 100 most recent records locally
     entries.insert(0, new_entry)
     entries = entries[:100]
     _save_raw_history(entries)
+    
+    # Sync to Supabase Cloud if configured
+    if is_supabase_configured():
+        sync_scan_to_supabase(new_entry, thumbnail_b64=thumbnail)
+        
     return new_entry
 
 def get_scan_history() -> List[Dict[str, Any]]:
-    """Retrieve all recorded farm scouting scans."""
+    """Retrieve all recorded farm scouting scans (Supabase if online, fallback to local)."""
+    if is_supabase_configured():
+        supa_scans = fetch_scans_from_supabase(limit=100)
+        if supa_scans is not None:
+            return supa_scans
     return _load_raw_history()
 
 def delete_scan_entry(scan_id: str) -> bool:
-    """Delete a specific scan record by ID."""
+    """Delete a specific scan record by ID (Local + Supabase)."""
+    if is_supabase_configured():
+        delete_scan_from_supabase(scan_id)
+        
     entries = _load_raw_history()
     filtered = [e for e in entries if e.get("id") != scan_id]
     if len(filtered) < len(entries):
@@ -80,7 +100,7 @@ def clear_all_history() -> None:
 
 def generate_history_csv() -> str:
     """Export all scan records as CSV string."""
-    entries = _load_raw_history()
+    entries = get_scan_history()
     output = io.StringIO()
     writer = csv.writer(output)
     
@@ -112,7 +132,7 @@ def record_user_feedback(
     corrected_disease: Optional[str] = None,
     comments: str = ""
 ) -> Dict[str, Any]:
-    """Record farmer validation feedback for continuous model retraining and active learning."""
+    """Record farmer validation feedback for continuous model retraining (Local + Supabase)."""
     feedback_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "farmer_feedback.json")
     feedbacks = []
     if os.path.exists(feedback_file):
@@ -136,5 +156,9 @@ def record_user_feedback(
             json.dump(feedbacks, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print(f"[HistoryStore] Error saving feedback: {e}")
+        
+    if is_supabase_configured():
+        sync_feedback_to_supabase(fb_entry)
+        
     return fb_entry
 
