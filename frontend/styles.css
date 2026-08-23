@@ -294,4 +294,19 @@ input[type="range"]::-moz-range-thumb {
     color: #34d399;
 }
 
+/* WhatsApp Modal & Simulator Explicit Layering */
+#whatsapp-modal.modal-visible {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+#whatsapp-modal.modal-hidden {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
 

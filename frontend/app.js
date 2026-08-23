@@ -2363,7 +2363,8 @@ async function submitDiagnosisFeedback(isAccurate) {
 
 function handleShareToWhatsApp() {
     if (!state.diagnosisData || !state.diagnosisData.top_prediction) {
-        showToast("Please perform or select a leaf diagnosis first.", "warning");
+        showToast("Opening WhatsApp Crop Doctor...", "info");
+        openWhatsAppModal();
         return;
     }
     const top = state.diagnosisData.top_prediction;
@@ -2414,22 +2415,33 @@ function handleShareToWhatsApp() {
 }
 
 function openWhatsAppModal() {
-    const modal = DOM.whatsappModal || document.getElementById('whatsapp-modal');
+    const modal = document.getElementById('whatsapp-modal');
     if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        modal.style.display = 'flex';
+        modal.classList.remove('hidden', 'modal-hidden');
+        modal.classList.add('flex', 'modal-visible');
+        modal.style.setProperty('display', 'flex', 'important');
+        modal.style.setProperty('visibility', 'visible', 'important');
+        modal.style.setProperty('opacity', '1', 'important');
+        modal.style.setProperty('pointer-events', 'auto', 'important');
     }
 }
 
 function closeWhatsAppModal() {
-    const modal = DOM.whatsappModal || document.getElementById('whatsapp-modal');
+    const modal = document.getElementById('whatsapp-modal');
     if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        modal.style.display = 'none';
+        modal.classList.add('hidden', 'modal-hidden');
+        modal.classList.remove('flex', 'modal-visible');
+        modal.style.setProperty('display', 'none', 'important');
+        modal.style.setProperty('visibility', 'hidden', 'important');
+        modal.style.setProperty('opacity', '0', 'important');
+        modal.style.setProperty('pointer-events', 'none', 'important');
     }
 }
+
+// Global window exposure for direct inline HTML click handlers
+window.openWhatsAppModal = openWhatsAppModal;
+window.closeWhatsAppModal = closeWhatsAppModal;
+window.handleShareToWhatsApp = handleShareToWhatsApp;
 
 function setupWhatsAppBotSimulator() {
     // 1. Modal Open Triggers
