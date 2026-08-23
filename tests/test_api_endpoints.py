@@ -344,6 +344,80 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("<Response>", twilio_res.text)
         self.assertIn("<Message>", twilio_res.text)
 
+    def test_19_satellite_ndvi_field_mapping(self):
+        """Verify Satellite NDVI Field Mapping, multispectral raster generation, zonal stats, VRA prescriptions, and GeoJSON export."""
+        # 1. Test sample fields endpoint
+        samples_res = self.client.get("/api/ndvi/sample-fields")
+        self.assertEqual(samples_res.status_code, 200)
+        s_data = samples_res.json()
+        self.assertIn("fields", s_data)
+        self.assertGreaterEqual(len(s_data["fields"]), 5)
+        
+        # Verify first field structure (Punjab Wheat)
+        f0 = s_data["fields"][0]
+        self.assertEqual(f0["crop"], "Wheat")
+        self.assertIn("lat", f0)
+        self.assertIn("lon", f0)
+
+        # 2. Test field analysis POST endpoint
+        analysis_res = self.client.post("/api/ndvi/analyze-field", json={
+            "lat": 30.9010,
+            "lon": 75.8573,
+            "crop": "Wheat",
+            "area_hectares": 14.5,
+            "field_name": "Ludhiana Precision Wheat Parcel"
+        })
+        self.assertEqual(analysis_res.status_code, 200)
+        a_data = analysis_res.json()
+        
+        # Verify field metadata
+        self.assertIn("field_metadata", a_data)
+        self.assertEqual(a_data["field_metadata"]["crop"], "Wheat")
+        self.assertEqual(a_data["field_metadata"]["area_hectares"], 14.5)
+
+        # Verify raster grid & statistics
+        self.assertIn("raster", a_data)
+        raster = a_data["raster"]
+        self.assertEqual(raster["grid_size"], 24)
+        self.assertEqual(len(raster["cells"]), 24)
+        self.assertEqual(len(raster["cells"][0]), 24)
+        
+        stats = raster["statistics"]
+        self.assertIn("mean_ndvi", stats)
+        self.assertGreaterEqual(stats["mean_ndvi"], 0.2)
+        self.assertLessEqual(stats["mean_ndvi"], 1.0)
+        self.assertIn("field_uniformity_score", stats)
+        
+        # Verify Zonal Breakdown
+        zonal = raster["zonal_breakdown"]
+        self.assertIn("high_vigor_pct", zonal)
+        self.assertIn("moderate_stress_pct", zonal)
+        self.assertIn("severe_anomaly_pct", zonal)
+        total_pct = zonal["high_vigor_pct"] + zonal["moderate_stress_pct"] + zonal["severe_anomaly_pct"]
+        self.assertAlmostEqual(total_pct, 100.0, delta=1.0)
+
+        # Verify VRA Fertilizer Prescription
+        self.assertIn("vra_fertilizer_prescription", a_data)
+        vra = a_data["vra_fertilizer_prescription"]
+        self.assertIn("zones", vra)
+        self.assertEqual(len(vra["zones"]), 3)
+        self.assertIn("total_fertilizer_demand", vra)
+        self.assertIn("cost_and_input_savings_pct", vra["total_fertilizer_demand"])
+
+        # Verify 180-Day Growth Curve
+        self.assertIn("multi_temporal_growth_curve", a_data)
+        curve = a_data["multi_temporal_growth_curve"]
+        self.assertEqual(len(curve), 6)
+        self.assertEqual(curve[0]["stage"], "Emergence & Seedling")
+
+        # 3. Test GeoJSON export endpoint
+        geojson_res = self.client.get("/api/ndvi/export-geojson?lat=30.9010&lon=75.8573&crop=Wheat&area=14.5")
+        self.assertEqual(geojson_res.status_code, 200)
+        g_data = geojson_res.json()
+        self.assertEqual(g_data["type"], "FeatureCollection")
+        self.assertGreater(len(g_data["features"]), 0)
+        self.assertEqual(g_data["features"][0]["geometry"]["type"], "Polygon")
+
 if __name__ == "__main__":
     unittest.main()
 

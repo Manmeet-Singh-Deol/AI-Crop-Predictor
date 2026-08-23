@@ -29,6 +29,7 @@ from backend.history_store import (
 from backend.i18n_dict import get_translations
 from backend.export_onnx import export_model_to_onnx
 from backend.whatsapp_bot import process_whatsapp_incoming, generate_twiml_response
+from backend.ndvi_engine import SAMPLE_FARM_FIELDS, analyze_satellite_farm_field
 
 # Security Hardening: Prevent Decompression Bomb attacks in PIL
 Image.MAX_IMAGE_PIXELS = 25_000_000
@@ -90,6 +91,13 @@ class WhatsAppSimulateRequest(BaseModel):
     longitude: Optional[float] = None
     language: Optional[str] = "en"
     from_number: Optional[str] = "+91 98765 43210"
+
+class NDVIFieldAnalysisRequest(BaseModel):
+    lat: float
+    lon: float
+    crop: Optional[str] = "Wheat"
+    area_hectares: Optional[float] = 10.0
+    field_name: Optional[str] = None
 
 @app.get("/api/health")
 async def health_check():
@@ -654,6 +662,46 @@ async def whatsapp_config_endpoint():
             "Commercial brand dosages and organic bio-controls"
         ]
     }
+
+# =========================================================
+# Satellite NDVI Farm Field Mapping Endpoints
+# =========================================================
+
+@app.get("/api/ndvi/sample-fields")
+async def get_ndvi_sample_fields():
+    """Get list of predefined iconic global farm fields for instant NDVI evaluation."""
+    return {"fields": SAMPLE_FARM_FIELDS}
+
+@app.post("/api/ndvi/analyze-field")
+async def analyze_ndvi_field(payload: NDVIFieldAnalysisRequest):
+    """Analyze field canopy vigor, generate 24x24 NDVI raster matrix, zonal breakdown, and VRA fertilizer prescription."""
+    try:
+        result = analyze_satellite_farm_field(
+            lat=payload.lat,
+            lon=payload.lon,
+            crop=payload.crop or "Wheat",
+            area_hectares=payload.area_hectares or 10.0,
+            field_name=payload.field_name
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"NDVI satellite analysis error: {str(e)}")
+
+@app.get("/api/ndvi/export-geojson")
+async def export_ndvi_geojson(
+    lat: float = Query(30.9010),
+    lon: float = Query(75.8573),
+    crop: str = Query("Wheat"),
+    area: float = Query(10.0)
+):
+    """Export GIS GeoJSON polygon with NDVI metrics for precision GPS tractor controllers."""
+    res = analyze_satellite_farm_field(
+        lat=lat,
+        lon=lon,
+        crop=crop,
+        area_hectares=area
+    )
+    return res.get("geojson", {})
 
 # Serve frontend index.html and static assets
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")

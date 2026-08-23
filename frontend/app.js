@@ -24,7 +24,13 @@ const state = {
     isListening: false,
     voiceReadAloud: true,
     speechRecognition: null,
-    activeSpeechUtterance: null
+    activeSpeechUtterance: null,
+    
+    // Satellite NDVI Field Mapping State
+    ndviFieldData: null,
+    ndviActiveLayer: 'ndvi',
+    ndviSampleFields: [],
+    currentNdviFieldId: 'punjab_wheat_field'
 };
 
 // DOM Elements Cache
@@ -200,6 +206,33 @@ const DOM = {
     btnWaSendMsg: document.getElementById('btn-wa-send-msg'),
     btnWaAttachCam: document.getElementById('btn-wa-attach-cam'),
     btnWaAttachPin: document.getElementById('btn-wa-attach-pin'),
+    
+    // Satellite NDVI Field Mapping
+    ndviSection: document.getElementById('ndvi-field-mapping-section'),
+    ndviPresetChips: document.getElementById('ndvi-preset-chips'),
+    ndviFieldNameLabel: document.getElementById('ndvi-field-name-label'),
+    ndviFieldCropBadge: document.getElementById('ndvi-field-crop-badge'),
+    ndviRasterCanvas: document.getElementById('ndvi-raster-canvas'),
+    ndviCellTooltip: document.getElementById('ndvi-cell-tooltip'),
+    ttCellCoords: document.getElementById('tt-cell-coords'),
+    ttCellNdvi: document.getElementById('tt-cell-ndvi'),
+    ttCellZone: document.getElementById('tt-cell-zone'),
+    ndviMeanVal: document.getElementById('ndvi-mean-val'),
+    ndviRangeSub: document.getElementById('ndvi-range-sub'),
+    ndviUniformityVal: document.getElementById('ndvi-uniformity-val'),
+    ndviAnomalyAlert: document.getElementById('ndvi-anomaly-alert'),
+    zoneHighPct: document.getElementById('zone-high-pct'),
+    zoneHighBar: document.getElementById('zone-high-bar'),
+    zoneModPct: document.getElementById('zone-mod-pct'),
+    zoneModBar: document.getElementById('zone-mod-bar'),
+    zoneSevPct: document.getElementById('zone-sev-pct'),
+    zoneSevBar: document.getElementById('zone-sev-bar'),
+    btnScoutNdviAnomaly: document.getElementById('btn-scout-ndvi-anomaly'),
+    vraSavingsBadge: document.getElementById('vra-savings-badge'),
+    vraPrescriptionTbody: document.getElementById('vra-prescription-tbody'),
+    ndviTemporalCurveContainer: document.getElementById('ndvi-temporal-curve-container'),
+    btnNdviExportGeojson: document.getElementById('btn-ndvi-export-geojson'),
+    btnNdviRefresh: document.getElementById('btn-ndvi-refresh'),
     
     toastContainer: document.getElementById('toast-container')
 };
@@ -2759,12 +2792,344 @@ function hideWhatsAppTyping() {
     if (el) el.remove();
 }
 
+// =========================================================
+// SATELLITE NDVI FARM FIELD MAPPING CONTROLLER
+// =========================================================
+
+async function setupNDVIFieldMapping() {
+    // 1. Layer switcher event listeners
+    document.querySelectorAll('.ndvi-layer-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.ndvi-layer-btn').forEach(b => {
+                b.classList.remove('active-layer', 'bg-emerald-600', 'text-white');
+                b.classList.add('text-slate-400');
+            });
+            btn.classList.add('active-layer', 'bg-emerald-600', 'text-white');
+            btn.classList.remove('text-slate-400');
+            state.ndviActiveLayer = btn.dataset.layer || 'ndvi';
+            renderNDVIRasterCanvas();
+        });
+    });
+
+    // 2. Export GeoJSON
+    if (DOM.btnNdviExportGeojson) {
+        DOM.btnNdviExportGeojson.addEventListener('click', handleExportGeoJSON);
+    }
+
+    // 3. Refresh Satellite Pass
+    if (DOM.btnNdviRefresh) {
+        DOM.btnNdviRefresh.addEventListener('click', () => {
+            showToast("Connecting to Sentinel-2 satellite pass...", "info");
+            if (state.ndviFieldData && state.ndviFieldData.field_metadata) {
+                const meta = state.ndviFieldData.field_metadata;
+                fetchAndRenderNDVIField(meta.lat, meta.lon, meta.crop, meta.area_hectares, meta.name);
+            }
+        });
+    }
+
+    // 4. 1-Click Scout Stressed Zone
+    if (DOM.btnScoutNdviAnomaly) {
+        DOM.btnScoutNdviAnomaly.addEventListener('click', handleScoutNDVIAnomaly);
+    }
+
+    // 5. Canvas Mouse Hover Tooltip
+    setupNDVICanvasInteractivity();
+
+    // 6. Load preset fields & initial analysis
+    await loadNDVISampleFields();
+}
+
+async function loadNDVISampleFields() {
+    try {
+        const res = await fetch('/api/ndvi/sample-fields');
+        if (res.ok) {
+            const data = await res.json();
+            state.ndviSampleFields = data.fields || [];
+            renderNDVIPresetChips();
+            
+            // Load initial field (Punjab Wheat)
+            if (state.ndviSampleFields.length > 0) {
+                const f0 = state.ndviSampleFields[0];
+                await fetchAndRenderNDVIField(f0.lat, f0.lon, f0.crop, f0.area_hectares, f0.name, f0.stress_anomaly);
+            }
+        }
+    } catch (err) {
+        console.warn("[NDVI] Failed to load sample fields:", err);
+    }
+}
+
+function renderNDVIPresetChips() {
+    if (!DOM.ndviPresetChips) return;
+    DOM.ndviPresetChips.innerHTML = state.ndviSampleFields.map((f, idx) => `
+        <button class="ndvi-field-chip px-3 py-1.5 rounded-xl border ${idx === 0 ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300 font-bold' : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300'} flex items-center space-x-1.5 flex-shrink-0 transition cursor-pointer" data-id="${f.id}">
+            <span>${f.name}</span>
+            <span class="text-[10px] opacity-70">(${f.crop})</span>
+        </button>
+    `).join('');
+
+    DOM.ndviPresetChips.querySelectorAll('.ndvi-field-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const f = state.ndviSampleFields.find(x => x.id === chip.dataset.id);
+            if (f) {
+                DOM.ndviPresetChips.querySelectorAll('.ndvi-field-chip').forEach(c => {
+                    c.className = "ndvi-field-chip px-3 py-1.5 rounded-xl border bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300 flex items-center space-x-1.5 flex-shrink-0 transition cursor-pointer";
+                });
+                chip.className = "ndvi-field-chip px-3 py-1.5 rounded-xl border bg-emerald-950/70 border-emerald-500/60 text-emerald-300 font-bold flex items-center space-x-1.5 flex-shrink-0 transition cursor-pointer";
+                fetchAndRenderNDVIField(f.lat, f.lon, f.crop, f.area_hectares, f.name, f.stress_anomaly);
+            }
+        });
+    });
+}
+
+async function fetchAndRenderNDVIField(lat, lon, crop, area, name, anomalyNote) {
+    try {
+        const res = await fetch('/api/ndvi/analyze-field', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lat: lat,
+                lon: lon,
+                crop: crop || "Wheat",
+                area_hectares: area || 10.0,
+                field_name: name
+            })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            state.ndviFieldData = data;
+            
+            // Update Labels
+            if (DOM.ndviFieldNameLabel) DOM.ndviFieldNameLabel.textContent = name || `${crop} Parcel (${lat.toFixed(2)}, ${lon.toFixed(2)})`;
+            if (DOM.ndviFieldCropBadge) DOM.ndviFieldCropBadge.textContent = `${crop} • ${area || 10} ha`;
+
+            // Update Metrics
+            const stats = data.raster.statistics;
+            if (DOM.ndviMeanVal) DOM.ndviMeanVal.textContent = stats.mean_ndvi;
+            if (DOM.ndviRangeSub) DOM.ndviRangeSub.textContent = `Range: ${stats.min_ndvi} – ${stats.max_ndvi}`;
+            if (DOM.ndviUniformityVal) DOM.ndviUniformityVal.textContent = `${stats.field_uniformity_score}%`;
+
+            // Update Zonal Breakdown
+            const zb = data.raster.zonal_breakdown;
+            if (DOM.zoneHighPct) DOM.zoneHighPct.textContent = `${zb.high_vigor_pct}%`;
+            if (DOM.zoneHighBar) DOM.zoneHighBar.style.width = `${zb.high_vigor_pct}%`;
+            if (DOM.zoneModPct) DOM.zoneModPct.textContent = `${zb.moderate_stress_pct}%`;
+            if (DOM.zoneModBar) DOM.zoneModBar.style.width = `${zb.moderate_stress_pct}%`;
+            if (DOM.zoneSevPct) DOM.zoneSevPct.textContent = `${zb.severe_anomaly_pct}%`;
+            if (DOM.zoneSevBar) DOM.zoneSevBar.style.width = `${zb.severe_anomaly_pct}%`;
+
+            if (DOM.ndviAnomalyAlert) {
+                DOM.ndviAnomalyAlert.textContent = anomalyNote || (zb.severe_anomaly_pct > 0 ? `${zb.severe_anomaly_pct}% STRESS ANOMALY DETECTED` : "CANOPY HEALTHY");
+            }
+
+            // Render Canvas Raster
+            renderNDVIRasterCanvas();
+
+            // Render VRA Prescription Table
+            renderVRAPrescriptionTable(data.vra_fertilizer_prescription);
+
+            // Render Multi-Temporal Phenology Curve
+            renderNDVITemporalCurve(data.multi_temporal_growth_curve);
+        }
+    } catch (err) {
+        console.warn("[NDVI] Field analysis fetch failed:", err);
+    }
+}
+
+function renderNDVIRasterCanvas() {
+    if (!DOM.ndviRasterCanvas || !state.ndviFieldData) return;
+    const canvas = DOM.ndviRasterCanvas;
+    const ctx = canvas.getContext('2d');
+    const raster = state.ndviFieldData.raster;
+    const cells = raster.cells;
+    const gridSize = raster.grid_size || 24;
+    
+    const w = canvas.width;
+    const h = canvas.height;
+    const cellW = w / gridSize;
+    const cellH = h / gridSize;
+
+    ctx.clearRect(0, 0, w, h);
+
+    for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+            const cell = cells[r][c];
+            let color = cell.color_ndvi;
+            
+            if (state.ndviActiveLayer === 'ndwi') {
+                color = cell.color_ndwi;
+            } else if (state.ndviActiveLayer === 'zones') {
+                color = cell.zone === 'high_vigor' ? '#16a34a' : (cell.zone === 'moderate_stress' ? '#eab308' : '#dc2626');
+            } else if (state.ndviActiveLayer === 'rgb') {
+                // Pseudo-natural satellite RGB
+                const gVal = Math.round(cell.ndvi * 160 + 60);
+                color = `rgb(40, ${gVal}, 30)`;
+            }
+
+            ctx.fillStyle = color;
+            ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+
+            // Subtle cell border grid
+            ctx.strokeStyle = "rgba(15, 23, 42, 0.25)";
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(c * cellW, r * cellH, cellW, cellH);
+        }
+    }
+}
+
+function setupNDVICanvasInteractivity() {
+    if (!DOM.ndviRasterCanvas) return;
+    const canvas = DOM.ndviRasterCanvas;
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!state.ndviFieldData) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const mouseY = (e.clientY - rect.top) * scaleY;
+
+        const gridSize = state.ndviFieldData.raster.grid_size || 24;
+        const cellW = canvas.width / gridSize;
+        const cellH = canvas.height / gridSize;
+
+        const col = Math.floor(mouseX / cellW);
+        const row = Math.floor(mouseY / cellH);
+
+        if (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
+            const cell = state.ndviFieldData.raster.cells[row][col];
+            if (DOM.ndviCellTooltip && DOM.ttCellCoords && DOM.ttCellNdvi) {
+                DOM.ndviCellTooltip.style.opacity = '1';
+                DOM.ttCellCoords.textContent = `📍 Lat: ${cell.lat.toFixed(4)}, Lon: ${cell.lon.toFixed(4)}`;
+                DOM.ttCellNdvi.textContent = `NDVI: ${cell.ndvi} | NDWI: ${cell.ndwi}`;
+                if (DOM.ttCellZone) DOM.ttCellZone.textContent = cell.zone_label;
+            }
+        }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        if (DOM.ndviCellTooltip) DOM.ndviCellTooltip.style.opacity = '0';
+    });
+}
+
+function renderVRAPrescriptionTable(prescription) {
+    if (!DOM.vraPrescriptionTbody || !prescription) return;
+    const zones = prescription.zones || [];
+    
+    if (DOM.vraSavingsBadge) {
+        const savings = prescription.total_fertilizer_demand?.cost_and_input_savings_pct || 18.4;
+        DOM.vraSavingsBadge.textContent = `${savings}% COST SAVINGS`;
+    }
+
+    DOM.vraPrescriptionTbody.innerHTML = zones.map(z => {
+        const totalUreaZone = Math.round(z.area_hectares * z.urea_kg_ha);
+        return `
+            <tr class="hover:bg-slate-900/60 transition">
+                <td class="py-2 flex items-center space-x-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: ${z.color}"></span>
+                    <span class="truncate font-medium">${z.zone_name.split(':')[0]}</span>
+                </td>
+                <td class="py-2">${z.area_hectares} ha <span class="text-[9.5px] text-slate-500 font-sans">(${z.area_pct}%)</span></td>
+                <td class="py-2 text-emerald-400 font-bold">${z.urea_kg_ha} kg/ha</td>
+                <td class="py-2 text-slate-100 font-bold">${totalUreaZone} kg</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderNDVITemporalCurve(timeline) {
+    if (!DOM.ndviTemporalCurveContainer || !timeline || timeline.length === 0) return;
+    const container = DOM.ndviTemporalCurveContainer;
+    const w = 560;
+    const h = 75;
+    const padX = 35;
+    const padY = 12;
+
+    const points = timeline.map((pt, idx) => {
+        const x = padX + (idx / (timeline.length - 1)) * (w - 2 * padX);
+        const y = (h - padY) - (pt.ndvi / 1.0) * (h - 2 * padY);
+        return { x, y, ndvi: pt.ndvi, stage: pt.stage, status: pt.status };
+    });
+
+    const pathD = points.reduce((acc, p, idx) => {
+        return idx === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
+    }, '');
+
+    const areaD = `${pathD} L ${points[points.length - 1].x} ${h - padY} L ${points[0].x} ${h - padY} Z`;
+
+    const svg = `
+        <svg viewBox="0 0 ${w} ${h}" class="w-full h-full overflow-visible font-mono text-[9px]">
+            <defs>
+                <linearGradient id="ndviGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                </linearGradient>
+            </defs>
+            <line x1="${padX}" y1="${h - padY}" x2="${w - padX}" y2="${h - padY}" stroke="#334155" stroke-dasharray="2 2"/>
+            <path d="${areaD}" fill="url(#ndviGrad)" />
+            <path d="${pathD}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" />
+            ${points.map(p => `
+                <circle cx="${p.x}" cy="${p.y}" r="${p.status.includes('Active') || p.status.includes('Current') ? '4.5' : '3'}" fill="${p.status.includes('Active') || p.status.includes('Current') ? '#34d399' : '#10b981'}" stroke="#020617" stroke-width="1.5"/>
+                <text x="${p.x}" y="${p.y - 7}" text-anchor="middle" fill="#94a3b8" font-size="8.5" font-weight="bold">${p.ndvi}</text>
+            `).join('')}
+        </svg>
+    `;
+    container.innerHTML = svg;
+}
+
+function handleScoutNDVIAnomaly() {
+    if (!state.ndviFieldData) return;
+    const meta = state.ndviFieldData.field_metadata;
+    
+    // Map to relevant sample specimen based on crop
+    const cropMap = {
+        "Wheat": "wheat_yellow_rust",
+        "Strawberry": "strawberry_leaf_scorch",
+        "Corn (Maize)": "corn_common_rust",
+        "Grape (Vineyard)": "grape_black_rot",
+        "Citrus (Orange)": "citrus_greening"
+    };
+    
+    const sampleId = cropMap[meta.crop] || "tomato_early_blight";
+    
+    // Trigger evaluation
+    showToast(`🛰️ Initiating targeted scouting for ${meta.name} anomaly zone...`, "info");
+    
+    // Scroll to Dropzone / Diagnosis area
+    const dropzone = document.getElementById('drop-zone');
+    if (dropzone) {
+        dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        dropzone.classList.add('ring-2', 'ring-amber-500');
+        setTimeout(() => dropzone.classList.remove('ring-2', 'ring-amber-500'), 2000);
+    }
+    
+    // Load specimen
+    evaluateSample(sampleId);
+}
+
+function handleExportGeoJSON() {
+    if (!state.ndviFieldData || !state.ndviFieldData.geojson) {
+        showToast("No NDVI field parcel data available to export.", "warning");
+        return;
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.ndviFieldData.geojson, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "farm_field_ndvi_gis.geojson");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    showToast("Exported GIS GeoJSON parcel with NDVI metrics!", "success");
+}
+
 // --- Initialization ---
 async function init() {
     setupEventListeners();
     setupPWAAndNetwork();
     setupMLOpsAndFeedback();
     setupWhatsAppBotSimulator();
+    setupNDVIFieldMapping();
     
     // Pre-warm in-browser ONNX engine in the background for instant edge inference
     getONNXSession();

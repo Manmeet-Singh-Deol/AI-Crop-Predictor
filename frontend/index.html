@@ -804,6 +804,235 @@
 
         </section>
 
+        <!-- ========================================================= -->
+        <!-- SATELLITE NDVI FARM FIELD MAPPING & CANOPY VIGOR ENGINE -->
+        <!-- ========================================================= -->
+        <section id="ndvi-field-mapping-section" class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur space-y-5">
+            
+            <!-- Section Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-xl border border-emerald-500/30 flex-shrink-0">
+                        <i class="fa-solid fa-satellite"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h3 id="txt-ndvi-title" class="text-base font-bold text-white font-['Plus_Jakarta_Sans']">Satellite NDVI Farm Field Mapping & Canopy Vigor</h3>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/40">SENTINEL-2 10M MSI</span>
+                        </div>
+                        <p id="txt-ndvi-sub" class="text-xs text-slate-400">Multispectral canopy vigor indices, zonal stress segmentation & Variable-Rate (VRA) fertilizer prescriptions</p>
+                    </div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="flex items-center space-x-2">
+                    <button id="btn-ndvi-export-geojson" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center space-x-1.5 cursor-pointer" title="Download GIS GeoJSON Parcel Polygon">
+                        <i class="fa-solid fa-map-location-dot text-emerald-400"></i>
+                        <span>Export GeoJSON</span>
+                    </button>
+                    <button id="btn-ndvi-refresh" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-500/20 transition flex items-center space-x-1.5 cursor-pointer">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Refresh Pass</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Global Farm Parcel Presets -->
+            <div class="space-y-1.5">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Global Farm Parcel Presets:</span>
+                <div id="ndvi-preset-chips" class="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin text-xs">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Main GIS Map & Zonal Intelligence Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                
+                <!-- Left: Satellite Map & Raster Canvas Container (7 cols) -->
+                <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4 space-y-3 flex flex-col justify-between">
+                    
+                    <!-- Map Controls Toolbar -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                        <div class="flex items-center space-x-2">
+                            <span id="ndvi-field-name-label" class="text-xs font-bold text-white">Ludhiana Precision Wheat Parcel</span>
+                            <span id="ndvi-field-crop-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-700/50">Wheat • 14.5 ha</span>
+                        </div>
+
+                        <!-- Layer Switcher Tabs -->
+                        <div class="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-[11px]">
+                            <button class="ndvi-layer-btn px-2.5 py-1 rounded-lg active-layer bg-emerald-600 text-white font-semibold transition" data-layer="ndvi">
+                                🌿 NDVI Vigor
+                            </button>
+                            <button class="ndvi-layer-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition" data-layer="ndwi">
+                                💧 NDWI Moisture
+                            </button>
+                            <button class="ndvi-layer-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition" data-layer="zones">
+                                🎯 3-Zone VRA
+                            </button>
+                            <button class="ndvi-layer-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition" data-layer="rgb">
+                                🌍 True Color
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Raster Canvas Stage -->
+                    <div class="relative w-full aspect-square max-h-[380px] bg-slate-900/90 rounded-xl overflow-hidden border border-slate-800/80 flex items-center justify-center group">
+                        
+                        <!-- Satellite Imagery Base Layer -->
+                        <div id="ndvi-satellite-bg" class="absolute inset-0 bg-cover bg-center opacity-40 transition-opacity duration-300" style="background-image: radial-gradient(#1e293b 2px, #020617 2px); background-size: 18px 18px;"></div>
+                        
+                        <!-- High-Res $24 \times 24$ GIS Raster Canvas -->
+                        <canvas id="ndvi-raster-canvas" width="480" height="480" class="w-full h-full object-contain relative z-10 cursor-crosshair"></canvas>
+
+                        <!-- Live Coordinate & Value Tooltip Overlay on Hover -->
+                        <div id="ndvi-cell-tooltip" class="absolute top-3 left-3 z-20 bg-slate-950/90 backdrop-blur-md border border-slate-700 px-3 py-2 rounded-xl text-[11px] text-slate-200 shadow-xl pointer-events-none transition-all opacity-0">
+                            <div class="font-bold text-white" id="tt-cell-coords">Lat: -- Lon: --</div>
+                            <div class="flex items-center space-x-2 mt-0.5">
+                                <span id="tt-cell-ndvi" class="font-mono text-emerald-400 font-bold">NDVI: --</span>
+                                <span id="tt-cell-zone" class="text-slate-400">Zone: --</span>
+                            </div>
+                        </div>
+
+                        <!-- Mini GIS Compass & Scale Badge -->
+                        <div class="absolute bottom-3 right-3 z-20 flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur border border-slate-800 text-[10px] text-slate-400 font-mono">
+                            <i class="fa-solid fa-compass text-emerald-400"></i>
+                            <span>N • 400m Field Grid</span>
+                        </div>
+                    </div>
+
+                    <!-- Scientific Color Legend Bar -->
+                    <div class="space-y-1 pt-1">
+                        <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                            <span class="text-red-400 font-bold">0.0 (Severe Stress)</span>
+                            <span class="text-amber-400">0.4 (Moderate)</span>
+                            <span class="text-emerald-400">0.7 (Healthy)</span>
+                            <span class="text-emerald-300 font-bold">0.9+ (Peak Vigor)</span>
+                        </div>
+                        <div class="w-full h-2.5 rounded-full bg-gradient-to-r from-red-600 via-yellow-500 via-emerald-400 to-emerald-700 shadow-inner"></div>
+                    </div>
+
+                </div>
+
+                <!-- Right: Metrics, Zonal Health, & VRA Fertilizer Prescription (5 cols) -->
+                <div class="lg:col-span-5 space-y-4 flex flex-col justify-between">
+                    
+                    <!-- Field Uniformity & Mean Metrics -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 block">Mean Field NDVI</span>
+                            <div class="flex items-baseline space-x-2">
+                                <span id="ndvi-mean-val" class="text-2xl font-black text-emerald-400 font-mono">0.68</span>
+                                <span class="text-xs font-semibold text-emerald-500/80">OPTIMAL</span>
+                            </div>
+                            <span id="ndvi-range-sub" class="text-[10px] text-slate-500 font-mono block">Range: 0.18 – 0.88</span>
+                        </div>
+
+                        <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 block">Field Uniformity</span>
+                            <div class="flex items-baseline space-x-2">
+                                <span id="ndvi-uniformity-val" class="text-2xl font-black text-teal-400 font-mono">88.2%</span>
+                                <span class="text-xs font-semibold text-teal-500/80">HIGH</span>
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-mono block">Std Dev: &plusmn;0.065</span>
+                        </div>
+                    </div>
+
+                    <!-- Zonal Breakdown Progress Bars -->
+                    <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-200">Management Zones & Stress Anomalies</span>
+                            <span id="ndvi-anomaly-alert" class="text-[10px] text-amber-400 font-mono">1 ANOMALY DETECTED</span>
+                        </div>
+
+                        <!-- High Vigor Bar -->
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-[11px]">
+                                <span class="text-emerald-400 font-medium flex items-center space-x-1">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span>Zone 1: High Vigor (NDVI &ge;0.65)</span>
+                                </span>
+                                <span id="zone-high-pct" class="font-mono font-bold text-slate-200">62.5%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                                <div id="zone-high-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 62.5%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Moderate Stress Bar -->
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-[11px]">
+                                <span class="text-amber-400 font-medium flex items-center space-x-1">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    <span>Zone 2: Mild Stress (NDVI 0.40–0.65)</span>
+                                </span>
+                                <span id="zone-mod-pct" class="font-mono font-bold text-slate-200">25.0%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                                <div id="zone-mod-bar" class="bg-amber-500 h-full rounded-full transition-all duration-500" style="width: 25%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Severe Anomaly Bar -->
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-[11px]">
+                                <span class="text-red-400 font-medium flex items-center space-x-1">
+                                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                    <span>Zone 3: Severe Anomaly (NDVI &lt;0.40)</span>
+                                </span>
+                                <span id="zone-sev-pct" class="font-mono font-bold text-slate-200">12.5%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                                <div id="zone-sev-bar" class="bg-red-500 h-full rounded-full transition-all duration-500" style="width: 12.5%"></div>
+                            </div>
+                        </div>
+
+                        <!-- 1-Click Scout Stressed Zone Button -->
+                        <button id="btn-scout-ndvi-anomaly" class="w-full mt-2 py-2 px-3 rounded-xl bg-gradient-to-r from-red-950/80 via-amber-950/60 to-red-950/80 hover:from-red-900 hover:to-amber-900 text-amber-200 border border-amber-600/40 text-xs font-semibold transition flex items-center justify-center space-x-2 shadow-sm cursor-pointer">
+                            <i class="fa-solid fa-crosshairs text-red-400 animate-pulse"></i>
+                            <span>Scout Stressed Zone with Pathology AI</span>
+                        </button>
+                    </div>
+
+                    <!-- Variable-Rate Application (VRA) Nitrogen Prescription Table -->
+                    <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-bold text-slate-200">Variable-Rate Nitrogen Prescription (VRA)</span>
+                            <span id="vra-savings-badge" class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 font-mono border border-emerald-600/40">18.4% SAVINGS</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-[10.5px]">
+                                <thead class="text-slate-400 border-b border-slate-800 font-semibold">
+                                    <tr>
+                                        <th class="py-1">Zone</th>
+                                        <th class="py-1">Area</th>
+                                        <th class="py-1">Urea Rate</th>
+                                        <th class="py-1">Total Demand</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vra-prescription-tbody" class="divide-y divide-slate-800/60 text-slate-200 font-mono">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- 180-Day Multi-Temporal Vegetative Biomass Growth Curve -->
+            <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-2 pt-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-200">180-Day Multi-Temporal NDVI Biomass Phenology Curve</span>
+                    <span class="text-[10px] text-slate-400 font-mono">Phenological Satellite Tracker</span>
+                </div>
+                <div id="ndvi-temporal-curve-container" class="w-full h-24 pt-1">
+                    <!-- Rendered as SVG / Canvas Curve via JS -->
+                </div>
+            </div>
+
+        </section>
+
         <!-- NEW SECTION 2: Farm Scouting Audit Log & Inspection History -->
         <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl backdrop-blur space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

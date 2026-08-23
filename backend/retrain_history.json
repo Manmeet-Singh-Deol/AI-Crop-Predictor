@@ -1,5 +1,25 @@
 [
   {
+    "run_id": "RUN-20260823105418",
+    "timestamp": "2026-08-23 10:54:18",
+    "model_version": "v1.3.9",
+    "epochs": 2,
+    "learning_rate": 0.0001,
+    "al_samples_used": 9,
+    "final_accuracy": 100.0,
+    "duration_seconds": 1.02,
+    "epoch_losses": [
+      4.4197,
+      4.6511
+    ],
+    "epoch_accuracies": [
+      0.0,
+      0.0
+    ],
+    "onnx_export_status": "ONNX Export Note: 'charmap' codec can't encode character '\\u2705' in position 102: character maps to <undefined>",
+    "hot_reload_status": "In-memory engine hot-reloaded successfully"
+  },
+  {
     "run_id": "RUN-20260823104339",
     "timestamp": "2026-08-23 10:43:39",
     "model_version": "v1.3.8",
