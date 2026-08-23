@@ -552,16 +552,24 @@ class CropInferenceEngine:
         image: Image.Image,
         top_k: int = 3,
         target_crop: Optional[str] = None,
-        hint_class: Optional[str] = None
+        hint_class: Optional[str] = None,
+        use_tta: bool = True
     ) -> Dict[str, Any]:
         """
-        Execute hybrid inference: neural network logits + biological feature scoring.
+        Execute hybrid inference: Test-Time Augmented (TTA) neural network logits + biological feature scoring.
         """
         tensor, rgb_array = self.preprocess_image(image)
         heuristics = self.analyze_visual_heuristics(rgb_array)
         
         with torch.no_grad():
-            logits = self.model(tensor).squeeze(0).cpu().numpy()
+            if use_tta:
+                # 3-Pass Test-Time Augmentation (Original, Horizontal Flip, 90-deg Rotation)
+                logits_orig = self.model(tensor)
+                logits_hflip = self.model(torch.flip(tensor, dims=[3]))
+                logits_rot = self.model(torch.rot90(tensor, 1, [2, 3]))
+                logits = ((logits_orig + logits_hflip + logits_rot) / 3.0).squeeze(0).cpu().numpy()
+            else:
+                logits = self.model(tensor).squeeze(0).cpu().numpy()
             
         scores = np.zeros(len(CLASS_NAMES), dtype=np.float32)
         

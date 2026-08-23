@@ -1,5 +1,77 @@
 [
   {
+    "run_id": "RUN-20260823113802",
+    "timestamp": "2026-08-23 11:38:02",
+    "model_version": "v1.3.13",
+    "epochs": 2,
+    "learning_rate": 0.0001,
+    "al_samples_used": 11,
+    "final_accuracy": 100.0,
+    "duration_seconds": 2.89,
+    "epoch_losses": [
+      0.8246,
+      0.7951
+    ],
+    "epoch_accuracies": [
+      100.0,
+      100.0
+    ],
+    "onnx_export_status": "Exported single self-contained ONNX (6.07 MB)",
+    "hot_reload_status": "In-memory engine hot-reloaded successfully"
+  },
+  {
+    "run_id": "RUN-20260823113725",
+    "timestamp": "2026-08-23 11:37:25",
+    "model_version": "v1.3.12",
+    "epochs": 5,
+    "learning_rate": 0.0002,
+    "al_samples_used": 10,
+    "final_accuracy": 100.0,
+    "duration_seconds": 5.37,
+    "epoch_losses": [
+      1.1457,
+      0.9109,
+      0.83,
+      0.8118,
+      0.8054
+    ],
+    "epoch_accuracies": [
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      100.0
+    ],
+    "onnx_export_status": "Exported single self-contained ONNX (6.07 MB)",
+    "hot_reload_status": "In-memory engine hot-reloaded successfully"
+  },
+  {
+    "run_id": "RUN-20260823113641",
+    "timestamp": "2026-08-23 11:36:41",
+    "model_version": "v1.3.11",
+    "epochs": 5,
+    "learning_rate": 0.0002,
+    "al_samples_used": 10,
+    "final_accuracy": 100.0,
+    "duration_seconds": 5.48,
+    "epoch_losses": [
+      2.2593,
+      1.5829,
+      1.2237,
+      1.0808,
+      1.0132
+    ],
+    "epoch_accuracies": [
+      70.83,
+      95.83,
+      100.0,
+      100.0,
+      100.0
+    ],
+    "onnx_export_status": "ONNX Export Note: 'charmap' codec can't encode character '\\u2705' in position 102: character maps to <undefined>",
+    "hot_reload_status": "In-memory engine hot-reloaded successfully"
+  },
+  {
     "run_id": "RUN-20260823110446",
     "timestamp": "2026-08-23 11:04:46",
     "model_version": "v1.3.10",
