@@ -240,7 +240,20 @@
                             <option value="Blueberry">🫐 Blueberry</option>
                             <option value="Raspberry">🍇 Raspberry</option>
                         </select>
+                    </div>
 
+                    <!-- Farm City / Location Input -->
+                    <div class="mt-2.5 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2.5">
+                        <div class="flex items-center space-x-1.5 text-xs text-slate-300 font-medium flex-shrink-0">
+                            <i class="fa-solid fa-location-dot text-emerald-400"></i>
+                            <span>Farm City:</span>
+                        </div>
+                        <div class="flex-1 flex items-center space-x-1.5">
+                            <input type="text" id="top-farm-city-input" placeholder="Enter city (e.g. Ludhiana, Punjab, California)..." class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:border-emerald-500 focus:outline-none transition">
+                            <button id="btn-top-update-city" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer flex-shrink-0" title="Update Weather & Satellite NDVI for this City">
+                                Set City
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -837,11 +850,23 @@
                 </div>
             </div>
 
-            <!-- Global Farm Parcel Presets -->
-            <div class="space-y-1.5">
-                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Global Farm Parcel Presets:</span>
-                <div id="ndvi-preset-chips" class="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin text-xs">
-                    <!-- Populated dynamically via JS -->
+            <!-- Global Farm Parcel Presets & Custom City Search -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                <div class="flex-1 space-y-1 min-w-0">
+                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Global Farm Parcel Presets:</span>
+                    <div id="ndvi-preset-chips" class="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin text-xs">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 w-full md:w-80 flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-location-dot absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                        <input type="text" id="ndvi-city-input" placeholder="Enter farm city (e.g. Ludhiana, California)..." class="w-full pl-7 pr-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+                    <button id="btn-ndvi-search-city" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center space-x-1 cursor-pointer flex-shrink-0">
+                        <i class="fa-solid fa-satellite"></i>
+                        <span>Search</span>
+                    </button>
                 </div>
             </div>
 

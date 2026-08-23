@@ -233,6 +233,10 @@ const DOM = {
     ndviTemporalCurveContainer: document.getElementById('ndvi-temporal-curve-container'),
     btnNdviExportGeojson: document.getElementById('btn-ndvi-export-geojson'),
     btnNdviRefresh: document.getElementById('btn-ndvi-refresh'),
+    ndviCityInput: document.getElementById('ndvi-city-input'),
+    btnNdviSearchCity: document.getElementById('btn-ndvi-search-city'),
+    topFarmCityInput: document.getElementById('top-farm-city-input'),
+    btnTopUpdateCity: document.getElementById('btn-top-update-city'),
     
     toastContainer: document.getElementById('toast-container')
 };
@@ -1628,26 +1632,65 @@ function setupEventListeners() {
         input.addEventListener('change', recalculateDosage);
     });
 
-    // Weather search
-    DOM.btnSearchWeather.addEventListener('click', () => {
-        const city = DOM.weatherCityInput.value.trim();
-        if (city) fetchWeatherRisk(city);
-    });
-    DOM.weatherCityInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const city = DOM.weatherCityInput.value.trim();
-            if (city) fetchWeatherRisk(city);
-        }
-    });
+    // Global Unified City Location Handler
+    const handleGlobalCityUpdate = (city) => {
+        const cleanCity = (city || '').trim();
+        if (!cleanCity) return;
+        
+        if (DOM.topFarmCityInput) DOM.topFarmCityInput.value = cleanCity;
+        if (DOM.weatherCityInput) DOM.weatherCityInput.value = cleanCity;
+        if (DOM.ndviCityInput) DOM.ndviCityInput.value = cleanCity;
+        
+        fetchWeatherRisk(cleanCity);
+        
+        // Also trigger Satellite NDVI for that city
+        const crop = DOM.targetCropSelect ? DOM.targetCropSelect.value : "Wheat";
+        const cropName = (crop === "auto" || !crop) ? "Wheat" : crop;
+        fetchAndRenderNDVIFieldByCity(cleanCity, cropName);
+        showToast(`📍 Analyzing microclimate & satellite NDVI for ${cleanCity}...`, "info");
+    };
+
+    // 1. Weather search bar
+    if (DOM.btnSearchWeather) {
+        DOM.btnSearchWeather.addEventListener('click', () => {
+            handleGlobalCityUpdate(DOM.weatherCityInput.value);
+        });
+    }
+    if (DOM.weatherCityInput) {
+        DOM.weatherCityInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleGlobalCityUpdate(DOM.weatherCityInput.value);
+        });
+    }
+
+    // 2. Top Card Farm City Input
+    if (DOM.btnTopUpdateCity) {
+        DOM.btnTopUpdateCity.addEventListener('click', () => {
+            handleGlobalCityUpdate(DOM.topFarmCityInput.value);
+        });
+    }
+    if (DOM.topFarmCityInput) {
+        DOM.topFarmCityInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleGlobalCityUpdate(DOM.topFarmCityInput.value);
+        });
+    }
+
+    // 3. Satellite NDVI City Search Bar
+    if (DOM.btnNdviSearchCity) {
+        DOM.btnNdviSearchCity.addEventListener('click', () => {
+            handleGlobalCityUpdate(DOM.ndviCityInput.value);
+        });
+    }
+    if (DOM.ndviCityInput) {
+        DOM.ndviCityInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleGlobalCityUpdate(DOM.ndviCityInput.value);
+        });
+    }
 
     // Quick Hubs Buttons
     DOM.quickCityBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const city = btn.dataset.city;
-            if (city) {
-                DOM.weatherCityInput.value = city;
-                fetchWeatherRisk(city);
-            }
+            if (city) handleGlobalCityUpdate(city);
         });
     });
 
@@ -1655,8 +1698,12 @@ function setupEventListeners() {
     DOM.btnGeolocateWeather.addEventListener('click', () => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => fetchWeatherRisk(null, pos.coords.latitude, pos.coords.longitude),
-                () => showToast("Geolocation permission denied.", "warning")
+                (pos) => {
+                    fetchWeatherRisk(null, pos.coords.latitude, pos.coords.longitude);
+                    const crop = DOM.targetCropSelect ? DOM.targetCropSelect.value : "Wheat";
+                    fetchAndRenderNDVIField(pos.coords.latitude, pos.coords.longitude, crop === "auto" ? "Wheat" : crop, 10.0, "My Device Farm Coordinates");
+                },
+                () => showToast("Geolocation permission denied. You can simply type your city above.", "warning")
             );
         }
     });
@@ -2904,6 +2951,37 @@ function renderNDVIPresetChips() {
             }
         });
     });
+}
+
+async function fetchAndRenderNDVIFieldByCity(cityName, cropName) {
+    try {
+        // 1. Check if matches preset fields
+        const foundPreset = state.ndviSampleFields.find(f => 
+            f.name.toLowerCase().includes(cityName.toLowerCase()) || 
+            f.region.toLowerCase().includes(cityName.toLowerCase())
+        );
+        if (foundPreset) {
+            await fetchAndRenderNDVIField(foundPreset.lat, foundPreset.lon, cropName || foundPreset.crop, foundPreset.area_hectares, foundPreset.name, foundPreset.stress_anomaly);
+            return;
+        }
+
+        // 2. Geocode city via Open-Meteo
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`);
+        if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            if (geoData.results && geoData.results.length > 0) {
+                const r0 = geoData.results[0];
+                const resolvedName = `${r0.name}, ${r0.country || ''}`;
+                await fetchAndRenderNDVIField(r0.latitude, r0.longitude, cropName || "Wheat", 12.5, `${resolvedName} Farm Parcel`);
+                return;
+            }
+        }
+
+        // Fallback: estimate
+        await fetchAndRenderNDVIField(30.90, 75.85, cropName || "Wheat", 10.0, `${cityName} Farm Field`);
+    } catch (e) {
+        console.warn("[NDVI City Geocode Error]:", e);
+    }
 }
 
 async function fetchAndRenderNDVIField(lat, lon, crop, area, name, anomalyNote) {
