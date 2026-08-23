@@ -94,7 +94,7 @@
                 <!-- 1-Click PWA App Install Button (Shown on Mobile / Chrome PWA prompt) -->
                 <button id="btn-pwa-install" class="hidden items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md shadow-emerald-500/20">
                     <i class="fa-solid fa-download"></i>
-                    <span>Install App</span>
+                    <span id="txt-install-app">Install App</span>
                 </button>
 
                 <!-- Language Selector -->
@@ -115,7 +115,7 @@
 
                 <button id="btn-open-mlops" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 border border-purple-800/50 text-xs font-semibold transition shadow-sm" title="MLOps Active Learning & Retraining Hub">
                     <i class="fa-solid fa-arrows-rotate text-purple-400"></i>
-                    <span class="hidden sm:inline">MLOps Hub</span>
+                    <span id="txt-mlops-hub-nav" class="hidden sm:inline">MLOps Hub</span>
                 </button>
 
                 <button id="btn-export-pdf-nav" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-medium transition shadow-sm disabled:opacity-50" disabled>
@@ -136,7 +136,7 @@
                     <i class="fa-solid fa-flask-vial text-brand-400"></i>
                     <span id="txt-sample-strip-title">Instant Test Specimens (1-Click Evaluation):</span>
                 </div>
-                <span class="text-xs text-slate-400">Click any sample to run complete diagnosis instantly</span>
+                <span id="txt-sample-strip-sub" class="text-xs text-slate-400">Click any sample to run complete diagnosis instantly</span>
             </div>
             
             <div id="sample-cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
@@ -173,7 +173,7 @@
                             </div>
                             <div>
                                 <p id="txt-drag-drop-title" class="text-sm font-semibold text-slate-200">Drag & drop leaf photo here</p>
-                                <p class="text-xs text-slate-400 mt-1">Supports JPG, PNG, WEBP (Max 15MB)</p>
+                                <p id="txt-drag-drop-sub" class="text-xs text-slate-400 mt-1">Supports JPG, PNG, WEBP (Max 15MB)</p>
                             </div>
                             <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700">
                                 <i class="fa-solid fa-folder-open text-brand-400"></i>
@@ -208,10 +208,10 @@
                     <div class="mt-4 pt-3.5 border-t border-slate-800 flex items-center justify-between gap-2.5">
                         <div class="flex items-center space-x-1.5 text-xs text-slate-300 font-medium flex-shrink-0">
                             <i class="fa-solid fa-wheat-awn text-brand-400"></i>
-                            <span>Target Crop:</span>
+                            <span id="txt-target-crop-label">Target Crop:</span>
                         </div>
                         <select id="target-crop-select" class="flex-1 bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:border-brand-500 focus:outline-none transition cursor-pointer">
-                            <option value="auto">🔍 Auto-Detect Crop (Default)</option>
+                            <option id="opt-auto-detect" value="auto">🔍 Auto-Detect Crop (Default)</option>
                             <option value="Wheat">🌾 Wheat (Triticum aestivum)</option>
                             <option value="Cotton">☁️ Cotton (Gossypium hirsutum)</option>
                             <option value="Coffee">☕ Coffee (Coffea arabica)</option>
@@ -328,7 +328,7 @@
                         </div>
                         <div>
                             <div class="flex items-center space-x-2">
-                                <span class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Identified Crop Species</span>
+                                <span id="txt-identified-species-title" class="text-[10px] text-brand-400 font-bold uppercase tracking-wider">Identified Crop Species</span>
                                 <span id="crop-botanical-family" class="text-[10px] px-2 py-0.2 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Family: Solanaceae</span>
                             </div>
                             <h3 id="crop-display-name" class="text-base font-bold text-white">Tomato</h3>
@@ -336,7 +336,7 @@
                         </div>
                     </div>
                     <div class="text-right flex-shrink-0">
-                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Species Match</span>
+                        <span id="txt-species-match" class="text-[10px] text-slate-400 uppercase font-semibold block">Species Match</span>
                         <span id="crop-match-pct" class="text-base font-extrabold text-brand-400 font-mono">--%</span>
                     </div>
                 </div>
@@ -432,16 +432,16 @@
                         <div id="feedback-btn-group" class="flex items-center space-x-2">
                             <button id="btn-feedback-accurate" class="px-2.5 py-1 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold transition flex items-center space-x-1">
                                 <i class="fa-solid fa-thumbs-up text-emerald-400"></i>
-                                <span>Accurate</span>
+                                <span id="txt-feedback-accurate">Accurate</span>
                             </button>
                             <button id="btn-feedback-incorrect" class="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/40 text-[11px] font-semibold transition flex items-center space-x-1">
                                 <i class="fa-solid fa-thumbs-down text-rose-400"></i>
-                                <span>Correct Label</span>
+                                <span id="txt-feedback-incorrect">Correct Label</span>
                             </button>
                         </div>
                         <div id="feedback-thanks-msg" class="hidden text-xs text-emerald-400 font-semibold items-center space-x-1">
                             <i class="fa-solid fa-check-circle"></i>
-                            <span>Thanks! Harvested for continuous active retraining.</span>
+                            <span id="txt-feedback-thanks">Thanks! Harvested for continuous active retraining.</span>
                         </div>
                     </div>
                 </div>
@@ -583,7 +583,7 @@
 
             <!-- Quick Region Tags -->
             <div class="flex items-center space-x-2 overflow-x-auto text-[11px] pb-1 text-slate-400">
-                <span class="text-slate-500 flex-shrink-0 font-medium">Quick Hubs:</span>
+                <span id="txt-quick-hubs" class="text-slate-500 flex-shrink-0 font-medium">Quick Hubs:</span>
                 <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Salinas Valley, CA">Salinas Valley (USA)</button>
                 <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Punjab, India">Punjab (India)</button>
                 <button class="quick-city-btn px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 flex-shrink-0 transition" data-city="Nashik, Maharashtra">Nashik (India)</button>
@@ -686,16 +686,16 @@
                         </div>
                         <div>
                             <div class="flex items-center space-x-2">
-                                <h4 class="text-sm font-bold text-white font-['Plus_Jakarta_Sans']">Optimal Spray Window & Rainfastness Engine</h4>
+                                <h4 id="txt-spray-engine-title" class="text-sm font-bold text-white font-['Plus_Jakarta_Sans']">Optimal Spray Window & Rainfastness Engine</h4>
                                 <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/40">DELTA-T PSYCHROMETRICS</span>
                             </div>
-                            <p class="text-[11px] text-slate-400">Delta-T evaporation index, droplet drift physics, and precipitation washout protection</p>
+                            <p id="txt-spray-engine-sub" class="text-[11px] text-slate-400">Delta-T evaporation index, droplet drift physics, and precipitation washout protection</p>
                         </div>
                     </div>
 
                     <!-- Chemical Formulation Selector -->
                     <div class="flex items-center space-x-2 w-full sm:w-auto">
-                        <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">Product:</span>
+                        <span id="txt-spray-product-label" class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">Product:</span>
                         <select id="spray-chemical-select" class="flex-1 sm:w-64 bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:border-emerald-500 focus:outline-none transition cursor-pointer">
                             <option value="systemic_fungicide">🧪 Systemic Fungicide (2.5h Rainfast)</option>
                             <option value="contact_fungicide">🛡️ Contact / Protectant (5.0h Rainfast)</option>
@@ -713,7 +713,7 @@
                     <!-- 1. Delta-T Evaporation Meter -->
                     <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] uppercase font-bold text-slate-400">Psychrometric Delta-T (ΔT)</span>
+                            <span id="txt-delta-t-title" class="text-[10px] uppercase font-bold text-slate-400">Psychrometric Delta-T (ΔT)</span>
                             <span id="spray-delta-t-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">IDEAL</span>
                         </div>
                         <div class="flex items-baseline space-x-1.5">
@@ -728,7 +728,7 @@
                     <!-- 2. Wind Drift & Inversion Meter -->
                     <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] uppercase font-bold text-slate-400">Wind Drift Safety</span>
+                            <span id="txt-wind-drift-title" class="text-[10px] uppercase font-bold text-slate-400">Wind Drift Safety</span>
                             <span id="spray-wind-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">SAFE</span>
                         </div>
                         <div class="flex items-baseline space-x-1.5">
@@ -743,7 +743,7 @@
                     <!-- 3. Rainfastness & Washout Protection -->
                     <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] uppercase font-bold text-slate-400">Precipitation Washout Risk</span>
+                            <span id="txt-washout-risk-title" class="text-[10px] uppercase font-bold text-slate-400">Precipitation Washout Risk</span>
                             <span id="spray-washout-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-950/60 text-teal-400 border border-teal-500/30">0 mm Rain</span>
                         </div>
                         <div class="flex items-baseline space-x-1.5">
@@ -982,10 +982,10 @@
                 </div>
                 <div>
                     <div class="flex items-center space-x-1.5">
-                        <h4 class="text-sm font-bold text-white font-['Plus_Jakarta_Sans'] leading-none">AgroBot AI</h4>
+                        <h4 id="txt-chatbot-title" class="text-sm font-bold text-white font-['Plus_Jakarta_Sans'] leading-none">AgroBot AI</h4>
                         <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">AGRONOMIST</span>
                     </div>
-                    <p class="text-[10px] text-slate-400 leading-tight mt-0.5">Crop Pathology, Pests & Dosage Expert</p>
+                    <p id="txt-chatbot-desc" class="text-[10px] text-slate-400 leading-tight mt-0.5">Crop Pathology, Pests & Dosage Expert</p>
                 </div>
             </div>
             <div class="flex items-center space-x-1">
@@ -1032,10 +1032,7 @@
                     <i class="fa-solid fa-robot"></i>
                 </div>
                 <div class="chat-bubble-assistant space-y-1.5 max-w-[88%]">
-                    <div class="flex items-center justify-between">
-                        <p>👋 <strong>Hello! I am your AI Agronomist & Crop Protection Specialist.</strong></p>
-                    </div>
-                    <p>Ask me anything or tap the <strong>🎙️ Microphone</strong> to speak directly. I can recommend top commercial chemical brands (<em>Syngenta, Bayer, FMC, BASF</em>), bio-controls, tank dosages, and weather safety in your preferred language.</p>
+                    <p id="txt-chatbot-welcome">👋 <strong>Hello! I am your AI Agronomist & Crop Protection Specialist.</strong> Ask me anything or tap the <strong>🎙️ Microphone</strong> to speak directly. I can recommend top commercial chemical brands (<em>Syngenta, Bayer, FMC, BASF</em>), bio-controls, tank dosages, and weather safety in your preferred language.</p>
                 </div>
             </div>
         </div>

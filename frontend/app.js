@@ -1192,44 +1192,131 @@ function applyTranslations() {
         if (el && t[key]) el.textContent = t[key];
     };
     
+    // Header & Navigation
     setSafe('txt-app-title', 'app_title');
     setSafe('txt-app-subtitle', 'app_subtitle');
     setSafe('txt-export-pdf-nav', 'export_pdf');
+    setSafe('txt-install-app', 'install_app');
+    setSafe('txt-mlops-hub-nav', 'mlops_hub');
+    setSafe('model-status-text', 'model_ready');
+
+    // 1-Click Specimens Strip
     setSafe('txt-sample-strip-title', 'sample_strip_title');
+    setSafe('txt-sample-strip-sub', 'sample_strip_sub');
+
+    // Ingestion Card
     setSafe('txt-upload-tab', 'upload_tab');
     setSafe('txt-camera-tab', 'camera_tab');
     setSafe('txt-drag-drop-title', 'drag_drop_title');
+    setSafe('txt-drag-drop-sub', 'drag_drop_sub');
     setSafe('txt-browse-computer', 'browse_computer');
     setSafe('txt-start-camera', 'start_camera');
     setSafe('txt-capture-diagnose', 'capture_diagnose');
+    setSafe('txt-target-crop-label', 'target_crop_label');
+    setSafe('opt-auto-detect', 'auto_detect');
+
+    // Identified Species & Primary Diagnosis
+    setSafe('txt-identified-species-title', 'identified_species_title');
+    setSafe('txt-species-match', 'species_match');
+    setSafe('txt-confidence-score', 'confidence_score');
+    setSafe('txt-infection-severity', 'infection_severity');
+    setSafe('txt-spot-count', 'spot_count');
+    setSafe('txt-action-urgency', 'action_urgency');
+    setSafe('txt-differential-title', 'differential_title');
+    setSafe('txt-feedback-prompt', 'feedback_question');
+    setSafe('txt-feedback-accurate', 'feedback_accurate');
+    setSafe('txt-feedback-incorrect', 'feedback_correct');
+    setSafe('txt-feedback-thanks', 'feedback_thanks');
+
+    if (!state.diagnosisData) {
+        setSafe('diag-disease-title', 'awaiting_scan_title');
+        setSafe('diag-scientific-name', 'awaiting_scan_sub');
+    }
+
+    // Vision Maps & Explainable AI
     setSafe('txt-explainable-ai', 'explainable_ai');
     setSafe('txt-mode-blended', 'blended');
     setSafe('txt-mode-heatmap', 'heatmap');
     setSafe('txt-mode-severity', 'lesion_mask');
     setSafe('txt-mode-original', 'original');
     setSafe('txt-blend-opacity', 'blend_opacity');
-    setSafe('txt-confidence-score', 'confidence_score');
-    setSafe('txt-infection-severity', 'infection_severity');
-    setSafe('txt-spot-count', 'spot_count');
-    setSafe('txt-action-urgency', 'action_urgency');
-    setSafe('txt-differential-title', 'differential_title');
+
+    // Treatment & Advisory
     setSafe('txt-treatment-guide', 'treatment_guide');
     setSafe('txt-download-pdf', 'download_pdf');
     setSafe('txt-tab-organic', 'tab_organic');
     setSafe('txt-tab-chemical', 'tab_chemical');
     setSafe('txt-tab-cultural', 'tab_cultural');
     setSafe('txt-tab-symptoms', 'tab_symptoms');
+
+    // Outbreak Forecaster & Weather
     setSafe('txt-weather-title', 'weather_title');
     setSafe('txt-weather-subtitle', 'weather_subtitle');
     setSafe('txt-forecast-btn', 'forecast_btn');
+    setSafe('txt-quick-hubs', 'quick_hubs');
     setSafe('txt-fungal-risk', 'fungal_risk');
     setSafe('txt-bacterial-risk', 'bacterial_risk');
     setSafe('txt-overall-threat', 'overall_threat');
     setSafe('txt-five-day-title', 'five_day_title');
+
+    // Spray Engine & Rainfastness
+    setSafe('txt-spray-engine-title', 'spray_engine_title');
+    setSafe('txt-spray-engine-sub', 'spray_engine_sub');
+    setSafe('txt-spray-product-label', 'spray_product_label');
+    setSafe('txt-delta-t-title', 'delta_t_title');
+    setSafe('txt-wind-drift-title', 'wind_drift_title');
+    setSafe('txt-washout-risk-title', 'washout_risk_title');
+
+    // Calculator & Audit Log
     setSafe('txt-calculator-title', 'calculator_title');
     setSafe('txt-history-title', 'history_title');
+    setSafe('txt-history-sub', 'history_subtitle');
     setSafe('txt-export-csv', 'export_csv');
     setSafe('txt-clear-history', 'clear_history');
+
+    // Chatbot Widget
+    setSafe('txt-chatbot-title', 'chatbot_title');
+    setSafe('txt-chatbot-desc', 'chatbot_sub');
+    setSafe('txt-chatbot-welcome', 'chatbot_welcome');
+
+    // Input Placeholders
+    if (DOM.weatherCityInput && t.weather_search_placeholder) {
+        DOM.weatherCityInput.placeholder = t.weather_search_placeholder;
+    }
+    if (DOM.chatInputField && t.chat_placeholder) {
+        DOM.chatInputField.placeholder = t.chat_placeholder;
+    }
+
+    // Refresh Chatbot Quick Chips in Active Language
+    if (state.currentLang === 'hi') {
+        renderChatChips([
+            "🍅 टमाटर के रोग और दवा",
+            "🌾 गेहूं का पीला रतुआ (Yellow Rust)",
+            "🧪 टॉप फफूंदनाशक उत्पाद",
+            "🌿 जैविक खेती के नुस्खे"
+        ]);
+    } else if (state.currentLang === 'pa') {
+        renderChatChips([
+            "🍅 ਟਮਾਟਰ ਦਾ ਪਛੇਤਾ ਝੁਲਸਾ ਰੋਗ",
+            "🎋 ਕਮਾਦ ਦਾ ਰੱਤਾ ਰੋਗ (Red Rot)",
+            "🧪 ਸਪਰੇਅ ਦੀ ਸਹੀ ਖੁਰਾਕ",
+            "🌾 ਝੋਨੇ ਦਾ ਬਲਾਸਟ ਰੋਗ"
+        ]);
+    } else if (state.currentLang === 'es') {
+        renderChatChips([
+            "🍅 Tratamiento para Tizón en Tomate",
+            "🌾 Roya Amarilla en Trigo",
+            "🧪 Mejores Marcas de Fungicidas",
+            "🌿 Remedios Orgánicos"
+        ]);
+    } else {
+        renderChatChips([
+            "🍅 Tomato Late Blight remedy",
+            "🎋 Sugarcane Red Rot & Rust",
+            "🧪 Top fungicide brands",
+            "📏 Spray tank calculator help"
+        ]);
+    }
 }
 
 // --- PDF Export Handler ---

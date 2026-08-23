@@ -248,7 +248,46 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("hourly_timeline", analysis)
         self.assertEqual(len(analysis["hourly_timeline"]), 48)
 
+    def test_17_hindi_multilingual_chatbot_and_i18n(self):
+        """Verify Hindi & multilingual chatbot comprehension and i18n localization dictionary."""
+        # 1. Test Hindi chat prompt in Devanagari
+        chat_hi = self.client.post("/api/chat", json={
+            "message": "टमाटर में झुलसा रोग का इलाज और दवा क्या है?",
+            "history": [],
+            "language": "hi"
+        })
+        self.assertEqual(chat_hi.status_code, 200)
+        hi_data = chat_hi.json()
+        self.assertIn("reply", hi_data)
+        self.assertTrue("टमाटर" in hi_data["reply"] or "झुलसा" in hi_data["reply"] or "Tomato" in hi_data["reply"])
+        self.assertIn("suggested_actions", hi_data)
+
+        # 2. Test Hindi chat prompt in Hinglish transliteration
+        chat_hinglish = self.client.post("/api/chat", json={
+            "message": "gehu me peela ratua ki dawa aur khurak batao",
+            "history": [],
+            "language": "hi"
+        })
+        self.assertEqual(chat_hinglish.status_code, 200)
+        hg_data = chat_hinglish.json()
+        self.assertIn("reply", hg_data)
+
+        # 3. Test i18n dictionary for Hindi and English
+        i18n_hi = self.client.get("/api/i18n/hi")
+        self.assertEqual(i18n_hi.status_code, 200)
+        t_hi = i18n_hi.json()["translations"]
+        self.assertIn("app_title", t_hi)
+        self.assertEqual(t_hi["app_title"], "एग्रो-एआई (AgroAI)")
+        self.assertIn("spray_engine_title", t_hi)
+        self.assertIn("chatbot_title", t_hi)
+
+        i18n_en = self.client.get("/api/i18n/en")
+        self.assertEqual(i18n_en.status_code, 200)
+        t_en = i18n_en.json()["translations"]
+        self.assertEqual(t_en["app_title"], "AgroAI")
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
