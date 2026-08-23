@@ -184,6 +184,21 @@ const DOM = {
     chatInputField: document.getElementById('chat-input-field'),
     chatSendBtn: document.getElementById('chat-send-btn'),
     
+    // WhatsApp Bot Integration & Simulator
+    btnOpenWhatsapp: document.getElementById('btn-open-whatsapp'),
+    btnShareWhatsapp: document.getElementById('btn-share-whatsapp'),
+    whatsappModal: document.getElementById('whatsapp-modal'),
+    btnCloseWhatsappModal: document.getElementById('btn-close-whatsapp-modal'),
+    btnWaSendPhoto: document.getElementById('btn-wa-send-photo'),
+    btnWaSendLocation: document.getElementById('btn-wa-send-location'),
+    btnWaClear: document.getElementById('btn-wa-clear'),
+    waImageInput: document.getElementById('wa-image-input'),
+    waMessagesContainer: document.getElementById('wa-messages-container'),
+    waInputField: document.getElementById('wa-input-field'),
+    btnWaSendMsg: document.getElementById('btn-wa-send-msg'),
+    btnWaAttachCam: document.getElementById('btn-wa-attach-cam'),
+    btnWaAttachPin: document.getElementById('btn-wa-attach-pin'),
+    
     toastContainer: document.getElementById('toast-container')
 };
 
@@ -659,9 +674,10 @@ function handleDiagnosisSuccess(data) {
         severity.severity_stage
     );
     
-    // 9. Enable Export PDF buttons
+    // 9. Enable Export PDF & Share WhatsApp buttons
     DOM.btnExportPdfNav.disabled = false;
     DOM.btnExportPdfCard.disabled = false;
+    if (DOM.btnShareWhatsapp) DOM.btnShareWhatsapp.disabled = false;
 }
 
 function renderVisualImage() {
@@ -1621,12 +1637,15 @@ function setupEventListeners() {
         });
     }
 
-    // Export PDF
+    // Export PDF & Share to WhatsApp
     if (DOM.btnExportPdfNav) {
         DOM.btnExportPdfNav.addEventListener('click', handleExportPdf);
     }
     if (DOM.btnExportPdfCard) {
         DOM.btnExportPdfCard.addEventListener('click', handleExportPdf);
+    }
+    if (DOM.btnShareWhatsapp) {
+        DOM.btnShareWhatsapp.addEventListener('click', handleShareToWhatsApp);
     }
 
     // AI Chatbot Event Listeners
@@ -2336,11 +2355,356 @@ async function submitDiagnosisFeedback(isAccurate) {
     }
 }
 
+// =========================================================
+// WhatsApp Diagnostic Bot & Simulator Controller
+// =========================================================
+
+function handleShareToWhatsApp() {
+    if (!state.diagnosisData || !state.diagnosisData.top_prediction) {
+        showToast("Please perform or select a leaf diagnosis first.", "warning");
+        return;
+    }
+    const top = state.diagnosisData.top_prediction;
+    const sev = state.diagnosisData.severity || {};
+    const adv = state.diagnosisData.advisory || {};
+    const chems = adv.chemical_controls || [];
+    const organics = adv.organic_controls || [];
+    
+    const lines = [
+        "🌾 *AgroAI Crop Doctor Prescription* 🌾",
+        "━━━━━━━━━━━━━━━━━━━━",
+        `🌱 *Crop:* ${top.crop}`,
+        `🦠 *Diagnosis:* *${top.disease}*`,
+        `🔬 *Pathogen Type:* ${adv.pathogen_type || 'Biological Pathogen'}`,
+        `📊 *AI Confidence:* ${top.confidence}%`,
+        `⚠️ *Infection Severity:* ${sev.severity_percentage || 0}% (${sev.severity_stage || 'Stage 1'})`,
+        ""
+    ];
+    
+    if (chems.length > 0) {
+        const c0 = chems[0];
+        lines.push(
+            "🧪 *Top Chemical Treatment:*",
+            `• *${c0.product}* (${c0.active_ingredient})`,
+            `  - Dosage: ${c0.dosage}`,
+            `  - Safety Wait (PHI): ${c0.interval || '14 days'}`,
+            ""
+        );
+    }
+    
+    if (organics.length > 0) {
+        lines.push(
+            "🌿 *Organic Remedy:*",
+            `• ${organics[0]}`,
+            ""
+        );
+    }
+    
+    lines.push(
+        "━━━━━━━━━━━━━━━━━━━━",
+        `🔗 *Scan on AgroAI Web:* ${window.location.origin}`,
+        "_Shared via AgroAI Precision Pathology Core_"
+    );
+    
+    const encoded = encodeURIComponent(lines.join("\n"));
+    window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+    showToast("Opening WhatsApp with formatted crop prescription...", "success");
+}
+
+function setupWhatsAppBotSimulator() {
+    // 1. Modal Toggles
+    if (DOM.btnOpenWhatsapp) {
+        DOM.btnOpenWhatsapp.addEventListener('click', () => {
+            if (DOM.whatsappModal) {
+                DOM.whatsappModal.classList.remove('hidden');
+                DOM.whatsappModal.classList.add('flex');
+            }
+        });
+    }
+
+    if (DOM.btnCloseWhatsappModal) {
+        DOM.btnCloseWhatsappModal.addEventListener('click', () => {
+            if (DOM.whatsappModal) {
+                DOM.whatsappModal.classList.add('hidden');
+                DOM.whatsappModal.classList.remove('flex');
+            }
+        });
+    }
+
+    // 2. Clear Chat
+    if (DOM.btnWaClear) {
+        DOM.btnWaClear.addEventListener('click', () => {
+            if (DOM.waMessagesContainer) {
+                DOM.waMessagesContainer.innerHTML = `
+                    <div class="flex flex-col items-start space-y-1 max-w-[88%]">
+                        <div class="bg-[#202c33] text-slate-200 p-3 rounded-2xl rounded-tl-none border border-[#2a3942] shadow-md space-y-1.5 leading-relaxed text-[11.5px]">
+                            <p>👋 <strong>Welcome to AgroAI WhatsApp Crop Doctor!</strong> 🌾</p>
+                            <p>Conversation reset. Send a leaf photo, GPS pin, or type your question below.</p>
+                        </div>
+                        <span class="text-[9.5px] text-slate-500 pl-1">AgroAI Bot • Just now</span>
+                    </div>
+                `;
+            }
+        });
+    }
+
+    // 3. Photo Sender
+    const triggerPhotoUpload = () => {
+        if (DOM.waImageInput) DOM.waImageInput.click();
+    };
+    if (DOM.btnWaAttachCam) DOM.btnWaAttachCam.addEventListener('click', triggerPhotoUpload);
+    if (DOM.btnWaSendPhoto) DOM.btnWaSendPhoto.addEventListener('click', triggerPhotoUpload);
+
+    if (DOM.waImageInput) {
+        DOM.waImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const b64 = event.target.result;
+                appendWhatsAppUserImage(b64);
+                showWhatsAppTyping();
+
+                try {
+                    const res = await fetch('/api/whatsapp/simulate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            image_base64: b64,
+                            language: state.currentLang || 'en'
+                        })
+                    });
+                    hideWhatsAppTyping();
+                    if (res.ok) {
+                        const data = await res.json();
+                        appendWhatsAppBotMessage(data.reply);
+                    } else {
+                        appendWhatsAppBotMessage("⚠️ *Error processing WhatsApp leaf photo.* Please ensure the image is clear.");
+                    }
+                } catch (err) {
+                    hideWhatsAppTyping();
+                    appendWhatsAppBotMessage("⚠️ *Network error connecting to WhatsApp webhook.*");
+                }
+            };
+            reader.readAsDataURL(file);
+            DOM.waImageInput.value = '';
+        });
+    }
+
+    // 4. GPS Location Sender
+    const sendLocationPin = async () => {
+        appendWhatsAppUserLocation();
+        showWhatsAppTyping();
+
+        let lat = 30.90;
+        let lon = 75.85;
+
+        if (navigator.geolocation) {
+            try {
+                const pos = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 2500 });
+                });
+                lat = pos.coords.latitude;
+                lon = pos.coords.longitude;
+            } catch (e) {
+                // Fallback default coordinates
+            }
+        }
+
+        try {
+            const res = await fetch('/api/whatsapp/simulate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    latitude: lat,
+                    longitude: lon,
+                    language: state.currentLang || 'en'
+                })
+            });
+            hideWhatsAppTyping();
+            if (res.ok) {
+                const data = await res.json();
+                appendWhatsAppBotMessage(data.reply);
+            } else {
+                appendWhatsAppBotMessage("⚠️ *Error fetching live weather telemetry.*");
+            }
+        } catch (err) {
+            hideWhatsAppTyping();
+            appendWhatsAppBotMessage("⚠️ *Network error simulating location.*");
+        }
+    };
+
+    if (DOM.btnWaAttachPin) DOM.btnWaAttachPin.addEventListener('click', sendLocationPin);
+    if (DOM.btnWaSendLocation) DOM.btnWaSendLocation.addEventListener('click', sendLocationPin);
+
+    // 5. Text Message Sender
+    const sendTextMessage = async (customText) => {
+        const text = customText || (DOM.waInputField ? DOM.waInputField.value.trim() : '');
+        if (!text) return;
+        if (DOM.waInputField) DOM.waInputField.value = '';
+
+        appendWhatsAppUserText(text);
+        showWhatsAppTyping();
+
+        try {
+            const res = await fetch('/api/whatsapp/simulate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: text,
+                    language: state.currentLang || 'en'
+                })
+            });
+            hideWhatsAppTyping();
+            if (res.ok) {
+                const data = await res.json();
+                appendWhatsAppBotMessage(data.reply);
+            } else {
+                appendWhatsAppBotMessage("⚠️ *Error connecting to AgroAI Agronomist.*");
+            }
+        } catch (err) {
+            hideWhatsAppTyping();
+            appendWhatsAppBotMessage("⚠️ *Network connection error.*");
+        }
+    };
+
+    if (DOM.btnWaSendMsg) {
+        DOM.btnWaSendMsg.addEventListener('click', () => sendTextMessage());
+    }
+    if (DOM.waInputField) {
+        DOM.waInputField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendTextMessage();
+            }
+        });
+    }
+
+    // 6. Quick Chips
+    document.querySelectorAll('.wa-quick-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const msg = chip.dataset.msg;
+            if (msg) sendTextMessage(msg);
+        });
+    });
+}
+
+function appendWhatsAppUserText(text) {
+    if (!DOM.waMessagesContainer) return;
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement('div');
+    div.className = "flex flex-col items-end space-y-1 self-end max-w-[85%]";
+    div.innerHTML = `
+        <div class="bg-[#005c4b] text-slate-100 p-2.5 rounded-2xl rounded-tr-none shadow-md text-[11.5px] leading-relaxed break-words">
+            ${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+        </div>
+        <div class="flex items-center space-x-1 pr-1 text-[9px] text-slate-400 font-mono">
+            <span>${now}</span>
+            <i class="fa-solid fa-check-double text-teal-400 text-[10px]"></i>
+        </div>
+    `;
+    DOM.waMessagesContainer.appendChild(div);
+    DOM.waMessagesContainer.scrollTop = DOM.waMessagesContainer.scrollHeight;
+}
+
+function appendWhatsAppUserImage(imgSrc) {
+    if (!DOM.waMessagesContainer) return;
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement('div');
+    div.className = "flex flex-col items-end space-y-1 self-end max-w-[85%]";
+    div.innerHTML = `
+        <div class="bg-[#005c4b] text-slate-100 p-1.5 rounded-2xl rounded-tr-none shadow-md text-[11.5px]">
+            <div class="w-48 h-40 rounded-xl overflow-hidden bg-slate-900 border border-emerald-700/60 mb-1">
+                <img src="${imgSrc}" class="w-full h-full object-cover" alt="Leaf Sample">
+            </div>
+            <div class="px-1 text-[10.5px] font-medium text-emerald-200">📸 Leaf Photo Attached</div>
+        </div>
+        <div class="flex items-center space-x-1 pr-1 text-[9px] text-slate-400 font-mono">
+            <span>${now}</span>
+            <i class="fa-solid fa-check-double text-teal-400 text-[10px]"></i>
+        </div>
+    `;
+    DOM.waMessagesContainer.appendChild(div);
+    DOM.waMessagesContainer.scrollTop = DOM.waMessagesContainer.scrollHeight;
+}
+
+function appendWhatsAppUserLocation() {
+    if (!DOM.waMessagesContainer) return;
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement('div');
+    div.className = "flex flex-col items-end space-y-1 self-end max-w-[85%]";
+    div.innerHTML = `
+        <div class="bg-[#005c4b] text-slate-100 p-2.5 rounded-2xl rounded-tr-none shadow-md text-[11.5px] flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-full bg-teal-600/40 border border-teal-400/50 flex items-center justify-center text-teal-300 flex-shrink-0">
+                <i class="fa-solid fa-location-dot"></i>
+            </div>
+            <div>
+                <span class="font-bold text-teal-200 block text-[11px]">📍 Live Farm Location Pin</span>
+                <span class="text-[9.5px] text-slate-300">Requesting microclimate spray clearance</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-1 pr-1 text-[9px] text-slate-400 font-mono">
+            <span>${now}</span>
+            <i class="fa-solid fa-check-double text-teal-400 text-[10px]"></i>
+        </div>
+    `;
+    DOM.waMessagesContainer.appendChild(div);
+    DOM.waMessagesContainer.scrollTop = DOM.waMessagesContainer.scrollHeight;
+}
+
+function appendWhatsAppBotMessage(markdownText) {
+    if (!DOM.waMessagesContainer) return;
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    // Parse WhatsApp markdown (*bold*, _italic_, `code`, \n)
+    let formatted = (markdownText || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+        .replace(/_(.*?)_/g, '<em>$1</em>')
+        .replace(/`(.*?)`/g, '<code class="bg-[#111b21] px-1 py-0.5 rounded font-mono text-emerald-300 text-[10.5px]">$1</code>')
+        .replace(/\n/g, '<br>');
+
+    const div = document.createElement('div');
+    div.className = "flex flex-col items-start space-y-1 max-w-[90%]";
+    div.innerHTML = `
+        <div class="bg-[#202c33] text-slate-200 p-3 rounded-2xl rounded-tl-none border border-[#2a3942] shadow-md space-y-1 text-[11.5px] leading-relaxed break-words">
+            ${formatted}
+        </div>
+        <span class="text-[9px] text-slate-500 pl-1 font-mono">${now}</span>
+    `;
+    DOM.waMessagesContainer.appendChild(div);
+    DOM.waMessagesContainer.scrollTop = DOM.waMessagesContainer.scrollHeight;
+}
+
+function showWhatsAppTyping() {
+    if (!DOM.waMessagesContainer) return;
+    const indicator = document.createElement('div');
+    indicator.id = 'wa-typing-indicator';
+    indicator.className = 'flex items-center space-x-1 bg-[#202c33] text-slate-400 px-3 py-2 rounded-2xl rounded-tl-none border border-[#2a3942] w-24 text-[10px]';
+    indicator.innerHTML = `
+        <span>typing</span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+    `;
+    DOM.waMessagesContainer.appendChild(indicator);
+    DOM.waMessagesContainer.scrollTop = DOM.waMessagesContainer.scrollHeight;
+}
+
+function hideWhatsAppTyping() {
+    const el = document.getElementById('wa-typing-indicator');
+    if (el) el.remove();
+}
+
 // --- Initialization ---
 async function init() {
     setupEventListeners();
     setupPWAAndNetwork();
     setupMLOpsAndFeedback();
+    setupWhatsAppBotSimulator();
     
     // Pre-warm in-browser ONNX engine in the background for instant edge inference
     getONNXSession();

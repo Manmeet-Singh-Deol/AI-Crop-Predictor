@@ -286,8 +286,67 @@ class TestAPIEndpoints(unittest.TestCase):
         t_en = i18n_en.json()["translations"]
         self.assertEqual(t_en["app_title"], "AgroAI")
 
+    def test_18_whatsapp_bot_integration(self):
+        """Verify WhatsApp Bot webhooks, leaf photo prescriptions, GPS spray advice, and simulation playground."""
+        # 1. Config endpoint
+        cfg = self.client.get("/api/whatsapp/config")
+        self.assertEqual(cfg.status_code, 200)
+        c_data = cfg.json()
+        self.assertTrue(c_data["bot_active"])
+        self.assertIn("deep_link", c_data)
+        self.assertIn("features", c_data)
+
+        # 2. Meta Webhook Verification challenge
+        meta_ver = self.client.get("/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=agroai_whatsapp_token&hub.challenge=CHALLENGE_ACCEPTED_123")
+        self.assertEqual(meta_ver.status_code, 200)
+        self.assertEqual(meta_ver.text, "CHALLENGE_ACCEPTED_123")
+
+        # 3. WhatsApp Simulate: Text Q&A in Hindi
+        sim_hi = self.client.post("/api/whatsapp/simulate", json={
+            "message": "टमाटर में झुलसा रोग की दवा",
+            "language": "hi"
+        })
+        self.assertEqual(sim_hi.status_code, 200)
+        hi_res = sim_hi.json()
+        self.assertIn("reply", hi_res)
+        self.assertEqual(hi_res["type"], "chat_advisory")
+
+        # 4. WhatsApp Simulate: Leaf Photo Diagnosis
+        sim_photo = self.client.post("/api/whatsapp/simulate", json={
+            "sample_id": "tomato_early_blight",
+            "language": "en"
+        })
+        self.assertEqual(sim_photo.status_code, 200)
+        p_res = sim_photo.json()
+        self.assertEqual(p_res["type"], "diagnosis")
+        self.assertIn("Prescription", p_res["reply"])
+        self.assertIn("Tomato", p_res["reply"])
+
+        # 5. WhatsApp Simulate: GPS Location Spray Check
+        sim_loc = self.client.post("/api/whatsapp/simulate", json={
+            "latitude": 30.90,
+            "longitude": 75.85,
+            "language": "en"
+        })
+        self.assertEqual(sim_loc.status_code, 200)
+        l_res = sim_loc.json()
+        self.assertEqual(l_res["type"], "weather_advisory")
+        self.assertIn("Delta-T", l_res["reply"])
+        self.assertIn("Spray Decision", l_res["reply"])
+
+        # 6. Twilio Form Webhook with TwiML XML response
+        twilio_res = self.client.post(
+            "/api/whatsapp/webhook",
+            data={"From": "whatsapp:+1234567890", "Body": "Help"},
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        self.assertEqual(twilio_res.status_code, 200)
+        self.assertIn("<Response>", twilio_res.text)
+        self.assertIn("<Message>", twilio_res.text)
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

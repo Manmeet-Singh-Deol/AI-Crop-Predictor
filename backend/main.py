@@ -8,7 +8,7 @@ import io
 import os
 import base64
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, File, UploadFile, Query, HTTPException, Body
+from fastapi import FastAPI, File, UploadFile, Query, HTTPException, Body, Request
 from fastapi.responses import Response, FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +28,7 @@ from backend.history_store import (
 )
 from backend.i18n_dict import get_translations
 from backend.export_onnx import export_model_to_onnx
+from backend.whatsapp_bot import process_whatsapp_incoming, generate_twiml_response
 
 # Security Hardening: Prevent Decompression Bomb attacks in PIL
 Image.MAX_IMAGE_PIXELS = 25_000_000
@@ -80,6 +81,15 @@ class FeedbackRequest(BaseModel):
     corrected_crop: Optional[str] = None
     corrected_disease: Optional[str] = None
     comments: Optional[str] = ""
+
+class WhatsAppSimulateRequest(BaseModel):
+    message: Optional[str] = None
+    image_base64: Optional[str] = None
+    sample_id: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    language: Optional[str] = "en"
+    from_number: Optional[str] = "+91 98765 43210"
 
 @app.get("/api/health")
 async def health_check():
@@ -516,6 +526,134 @@ async def mlops_trigger_retrain_endpoint(payload: TriggerRetrainRequest):
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Continuous retraining error: {str(e)}")
+
+# =========================================================
+# WhatsApp Diagnostic Bot & Webhook Endpoints
+# =========================================================
+
+@app.get("/api/whatsapp/webhook")
+async def whatsapp_webhook_verification(
+    request: Request,
+    hub_mode: Optional[str] = Query(None, alias="hub.mode"),
+    hub_challenge: Optional[str] = Query(None, alias="hub.challenge"),
+    hub_verify_token: Optional[str] = Query(None, alias="hub.verify_token")
+):
+    """Meta WhatsApp Cloud API Webhook Verification Endpoint."""
+    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "agroai_whatsapp_token")
+    if hub_mode == "subscribe" and hub_verify_token == verify_token:
+        return Response(content=hub_challenge or "", media_type="text/plain")
+    return {"status": "AgroAI WhatsApp Webhook Active", "provider": "Twilio / Meta Cloud API Ready"}
+
+@app.post("/api/whatsapp/webhook")
+async def whatsapp_webhook_handler(request: Request):
+    """Unified Webhook endpoint for Twilio (TwiML) and Meta WhatsApp messages/photos."""
+    content_type = request.headers.get("content-type", "")
+    
+    from_number = "+0000000000"
+    message_text = None
+    media_url = None
+    latitude = None
+    longitude = None
+    
+    if "application/x-www-form-urlencoded" in content_type:
+        # Twilio form data format
+        form = await request.form()
+        from_number = form.get("From", "WhatsApp_User")
+        message_text = form.get("Body", "")
+        num_media = int(form.get("NumMedia", 0) or 0)
+        if num_media > 0:
+            media_url = form.get("MediaUrl0")
+        if "Latitude" in form and "Longitude" in form:
+            try:
+                latitude = float(form.get("Latitude"))
+                longitude = float(form.get("Longitude"))
+            except (ValueError, TypeError):
+                pass
+                
+        result = await process_whatsapp_incoming(
+            from_number=from_number,
+            message_text=message_text,
+            media_url=media_url,
+            latitude=latitude,
+            longitude=longitude
+        )
+        twiml_xml = generate_twiml_response(result.get("reply", ""))
+        return Response(content=twiml_xml, media_type="application/xml")
+    else:
+        # Meta JSON format
+        try:
+            data = await request.json()
+            if "entry" in data:
+                for entry in data.get("entry", []):
+                    for change in entry.get("changes", []):
+                        val = change.get("value", {})
+                        for msg in val.get("messages", []):
+                            from_number = msg.get("from", "WhatsApp_User")
+                            if msg.get("type") == "text":
+                                message_text = msg.get("text", {}).get("body", "")
+                            elif msg.get("type") == "location":
+                                latitude = msg.get("location", {}).get("latitude")
+                                longitude = msg.get("location", {}).get("longitude")
+                            elif msg.get("type") == "image":
+                                media_url = msg.get("image", {}).get("link")
+            else:
+                from_number = data.get("from", "WhatsApp_User")
+                message_text = data.get("message") or data.get("text")
+                media_url = data.get("media_url")
+                latitude = data.get("latitude")
+                longitude = data.get("longitude")
+                
+            result = await process_whatsapp_incoming(
+                from_number=from_number,
+                message_text=message_text,
+                media_url=media_url,
+                latitude=latitude,
+                longitude=longitude
+            )
+            return result
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"WhatsApp webhook processing error: {str(e)}")
+
+@app.post("/api/whatsapp/simulate")
+async def whatsapp_simulate_endpoint(payload: WhatsAppSimulateRequest):
+    """WhatsApp Simulator & Testing Playground endpoint for frontend testing without live credentials."""
+    img_b64 = payload.image_base64
+    if payload.sample_id and not img_b64:
+        sample_img = get_sample_image(payload.sample_id)
+        if sample_img:
+            buf = io.BytesIO()
+            sample_img.save(buf, format="JPEG")
+            img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            
+    result = await process_whatsapp_incoming(
+        from_number=payload.from_number or "+91 98765 43210",
+        message_text=payload.message,
+        image_base64=img_b64,
+        latitude=payload.latitude,
+        longitude=payload.longitude,
+        language=payload.language or "en"
+    )
+    return result
+
+@app.get("/api/whatsapp/config")
+async def whatsapp_config_endpoint():
+    """Get WhatsApp bot metadata, deep links, and feature support."""
+    bot_phone = os.getenv("WHATSAPP_BOT_NUMBER", "+14155238886")
+    clean_num = bot_phone.replace("+", "").replace(" ", "").replace("-", "")
+    return {
+        "bot_active": True,
+        "bot_number": bot_phone,
+        "twilio_configured": bool(os.getenv("TWILIO_ACCOUNT_SID")),
+        "meta_configured": bool(os.getenv("WHATSAPP_ACCESS_TOKEN")),
+        "deep_link": f"https://wa.me/{clean_num}?text=Hi%20AgroAI",
+        "share_base_url": "https://api.whatsapp.com/send",
+        "features": [
+            "Leaf photo disease diagnosis & prescription",
+            "GPS location live spray window & Delta-T check",
+            "Multilingual conversational agronomy advice (Hindi & English)",
+            "Commercial brand dosages and organic bio-controls"
+        ]
+    }
 
 # Serve frontend index.html and static assets
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
