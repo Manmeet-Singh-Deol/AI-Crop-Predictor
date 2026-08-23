@@ -850,23 +850,84 @@
                 </div>
             </div>
 
-            <!-- Global Farm Parcel Presets & Custom City Search -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div class="flex-1 space-y-1 min-w-0">
-                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Global Farm Parcel Presets:</span>
-                    <div id="ndvi-preset-chips" class="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin text-xs">
-                        <!-- Populated dynamically via JS -->
+            <!-- Mode Switcher Tabs -->
+            <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                    <button id="tab-btn-custom-farm" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-md">
+                        <i class="fa-solid fa-location-crosshairs"></i>
+                        <span>My Custom Farm & City</span>
+                    </button>
+                    <button id="tab-btn-preset-farms" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5 cursor-pointer">
+                        <i class="fa-solid fa-earth-americas"></i>
+                        <span>Global Benchmark Demo Parcels</span>
+                    </button>
+                </div>
+                <div class="text-[11px] text-slate-400 hidden md:block">
+                    <span>📡 Real-Time Sentinel-2 10m Ground Resolution</span>
+                </div>
+            </div>
+
+            <!-- Panel 1: My Custom Farm Scanner (Default Active) -->
+            <div id="panel-custom-farm" class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <!-- City / Address -->
+                    <div class="md:col-span-4 space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-300 flex items-center space-x-1">
+                            <i class="fa-solid fa-city text-emerald-400"></i>
+                            <span>Farm City, District or Village:</span>
+                        </label>
+                        <div class="relative">
+                            <i class="fa-solid fa-location-dot absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                            <input type="text" id="ndvi-custom-city-input" placeholder="e.g. Ludhiana, Amritsar, Fresno, Nashik, Kent..." class="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- Crop Type -->
+                    <div class="md:col-span-3 space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-300 flex items-center space-x-1">
+                            <i class="fa-solid fa-wheat-awn text-emerald-400"></i>
+                            <span>Cultivated Crop:</span>
+                        </label>
+                        <select id="ndvi-custom-crop-select" class="w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition cursor-pointer">
+                            <option value="Wheat">🌾 Wheat (Triticum aestivum)</option>
+                            <option value="Rice">🌾 Rice / Paddy (Oryza sativa)</option>
+                            <option value="Corn (Maize)">🌽 Corn / Maize (Zea mays)</option>
+                            <option value="Cotton">☁️ Cotton (Gossypium hirsutum)</option>
+                            <option value="Sugarcane">🎋 Sugarcane (Saccharum officinarum)</option>
+                            <option value="Tomato">🍅 Tomato (Solanum lycopersicum)</option>
+                            <option value="Potato">🥔 Potato (Solanum tuberosum)</option>
+                            <option value="Soybean">🌱 Soybean (Glycine max)</option>
+                            <option value="Coffee">☕ Coffee (Coffea arabica)</option>
+                            <option value="Grape">🍇 Grape (Vitis vinifera)</option>
+                            <option value="Strawberry">🍓 Strawberry (Fragaria ananassa)</option>
+                            <option value="Citrus">🍊 Citrus / Orange</option>
+                        </select>
+                    </div>
+
+                    <!-- Field Size -->
+                    <div class="md:col-span-2 space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-300 flex items-center space-x-1">
+                            <i class="fa-solid fa-ruler-combined text-emerald-400"></i>
+                            <span>Field Size (ha):</span>
+                        </label>
+                        <input type="number" id="ndvi-custom-hectares" value="12.5" min="0.5" max="500" step="0.5" class="w-full py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 font-mono focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+
+                    <!-- Action Button -->
+                    <div class="md:col-span-3">
+                        <button id="btn-scan-custom-farm" class="w-full py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition flex items-center justify-center space-x-2 cursor-pointer">
+                            <i class="fa-solid fa-satellite-dish"></i>
+                            <span>🛰️ Scan My Farm</span>
+                        </button>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2 w-full md:w-80 flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
-                    <div class="relative flex-1">
-                        <i class="fa-solid fa-location-dot absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
-                        <input type="text" id="ndvi-city-input" placeholder="Enter farm city (e.g. Ludhiana, California)..." class="w-full pl-7 pr-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition">
-                    </div>
-                    <button id="btn-ndvi-search-city" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center space-x-1 cursor-pointer flex-shrink-0">
-                        <i class="fa-solid fa-satellite"></i>
-                        <span>Search</span>
-                    </button>
+            </div>
+
+            <!-- Panel 2: Preset Global Benchmark Farms (Collapsed by default) -->
+            <div id="panel-preset-farms" class="hidden bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-2">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Click a Global Benchmark Demo Parcel:</span>
+                <div id="ndvi-preset-chips" class="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin text-xs">
+                    <!-- Populated dynamically via JS -->
                 </div>
             </div>
 
@@ -1476,7 +1537,7 @@
     <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-    <script src="offline_db.js?v=1.7.0"></script>
-    <script src="app.js?v=1.7.0"></script>
+    <script src="offline_db.js?v=1.7.1"></script>
+    <script src="app.js?v=1.7.1"></script>
 </body>
 </html>

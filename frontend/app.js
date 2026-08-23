@@ -233,8 +233,14 @@ const DOM = {
     ndviTemporalCurveContainer: document.getElementById('ndvi-temporal-curve-container'),
     btnNdviExportGeojson: document.getElementById('btn-ndvi-export-geojson'),
     btnNdviRefresh: document.getElementById('btn-ndvi-refresh'),
-    ndviCityInput: document.getElementById('ndvi-city-input'),
-    btnNdviSearchCity: document.getElementById('btn-ndvi-search-city'),
+    tabBtnCustomFarm: document.getElementById('tab-btn-custom-farm'),
+    tabBtnPresetFarms: document.getElementById('tab-btn-preset-farms'),
+    panelCustomFarm: document.getElementById('panel-custom-farm'),
+    panelPresetFarms: document.getElementById('panel-preset-farms'),
+    ndviCustomCityInput: document.getElementById('ndvi-custom-city-input'),
+    ndviCustomCropSelect: document.getElementById('ndvi-custom-crop-select'),
+    ndviCustomHectares: document.getElementById('ndvi-custom-hectares'),
+    btnScanCustomFarm: document.getElementById('btn-scan-custom-farm'),
     topFarmCityInput: document.getElementById('top-farm-city-input'),
     btnTopUpdateCity: document.getElementById('btn-top-update-city'),
     
@@ -2904,10 +2910,50 @@ async function setupNDVIFieldMapping() {
         DOM.btnScoutNdviAnomaly.addEventListener('click', handleScoutNDVIAnomaly);
     }
 
-    // 5. Canvas Mouse Hover Tooltip
+    // 5. Mode Switcher: My Custom Farm vs Global Presets
+    if (DOM.tabBtnCustomFarm && DOM.tabBtnPresetFarms) {
+        DOM.tabBtnCustomFarm.addEventListener('click', () => {
+            DOM.tabBtnCustomFarm.className = "px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-md";
+            DOM.tabBtnPresetFarms.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5 cursor-pointer";
+            if (DOM.panelCustomFarm) DOM.panelCustomFarm.classList.remove('hidden');
+            if (DOM.panelPresetFarms) DOM.panelPresetFarms.classList.add('hidden');
+        });
+
+        DOM.tabBtnPresetFarms.addEventListener('click', () => {
+            DOM.tabBtnPresetFarms.className = "px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-md";
+            DOM.tabBtnCustomFarm.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5 cursor-pointer";
+            if (DOM.panelPresetFarms) DOM.panelPresetFarms.classList.remove('hidden');
+            if (DOM.panelCustomFarm) DOM.panelCustomFarm.classList.add('hidden');
+        });
+    }
+
+    // 6. "Scan My Farm" Custom Field Trigger
+    const triggerCustomFarmScan = async () => {
+        const city = ((DOM.ndviCustomCityInput && DOM.ndviCustomCityInput.value) || (DOM.topFarmCityInput && DOM.topFarmCityInput.value) || "Ludhiana").trim();
+        const crop = (DOM.ndviCustomCropSelect && DOM.ndviCustomCropSelect.value) || "Wheat";
+        const ha = parseFloat((DOM.ndviCustomHectares && DOM.ndviCustomHectares.value) || "12.5");
+        
+        // Sync city inputs across the interface
+        if (DOM.topFarmCityInput) DOM.topFarmCityInput.value = city;
+        if (DOM.weatherCityInput) DOM.weatherCityInput.value = city;
+        if (DOM.ndviCustomCityInput) DOM.ndviCustomCityInput.value = city;
+        
+        showToast(`🛰️ Geocoding and generating Sentinel-2 NDVI raster for ${city}...`, "info");
+        await fetchAndRenderNDVIFieldByCity(city, crop, ha);
+        fetchWeatherRisk(city);
+    };
+
+    if (DOM.btnScanCustomFarm) DOM.btnScanCustomFarm.addEventListener('click', triggerCustomFarmScan);
+    if (DOM.ndviCustomCityInput) {
+        DOM.ndviCustomCityInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') triggerCustomFarmScan();
+        });
+    }
+
+    // 7. Canvas Mouse Hover Tooltip
     setupNDVICanvasInteractivity();
 
-    // 6. Load preset fields & initial analysis
+    // 8. Load preset fields & initial analysis
     await loadNDVISampleFields();
 }
 
@@ -2919,11 +2965,8 @@ async function loadNDVISampleFields() {
             state.ndviSampleFields = data.fields || [];
             renderNDVIPresetChips();
             
-            // Load initial field (Punjab Wheat)
-            if (state.ndviSampleFields.length > 0) {
-                const f0 = state.ndviSampleFields[0];
-                await fetchAndRenderNDVIField(f0.lat, f0.lon, f0.crop, f0.area_hectares, f0.name, f0.stress_anomaly);
-            }
+            // Load initial custom farm (Punjab / Ludhiana Wheat Field)
+            await fetchAndRenderNDVIFieldByCity("Ludhiana", "Wheat", 14.5);
         }
     } catch (err) {
         console.warn("[NDVI] Failed to load sample fields:", err);
@@ -2933,7 +2976,7 @@ async function loadNDVISampleFields() {
 function renderNDVIPresetChips() {
     if (!DOM.ndviPresetChips) return;
     DOM.ndviPresetChips.innerHTML = state.ndviSampleFields.map((f, idx) => `
-        <button class="ndvi-field-chip px-3 py-1.5 rounded-xl border ${idx === 0 ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300 font-bold' : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300'} flex items-center space-x-1.5 flex-shrink-0 transition cursor-pointer" data-id="${f.id}">
+        <button class="ndvi-field-chip px-3 py-1.5 rounded-xl border bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300 flex items-center space-x-1.5 flex-shrink-0 transition cursor-pointer" data-id="${f.id}">
             <span>${f.name}</span>
             <span class="text-[10px] opacity-70">(${f.crop})</span>
         </button>
@@ -2953,32 +2996,25 @@ function renderNDVIPresetChips() {
     });
 }
 
-async function fetchAndRenderNDVIFieldByCity(cityName, cropName) {
+async function fetchAndRenderNDVIFieldByCity(cityName, cropName, hectares = 12.5) {
     try {
-        // 1. Check if matches preset fields
-        const foundPreset = state.ndviSampleFields.find(f => 
-            f.name.toLowerCase().includes(cityName.toLowerCase()) || 
-            f.region.toLowerCase().includes(cityName.toLowerCase())
-        );
-        if (foundPreset) {
-            await fetchAndRenderNDVIField(foundPreset.lat, foundPreset.lon, cropName || foundPreset.crop, foundPreset.area_hectares, foundPreset.name, foundPreset.stress_anomaly);
-            return;
-        }
-
-        // 2. Geocode city via Open-Meteo
-        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`);
+        const cleanName = (cityName || 'Target Region').trim();
+        const safeCrop = (cropName === 'auto' || !cropName) ? 'Wheat' : cropName;
+        
+        // Geocode city via Open-Meteo
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanName)}&count=1&language=en&format=json`);
         if (geoRes.ok) {
             const geoData = await geoRes.json();
             if (geoData.results && geoData.results.length > 0) {
                 const r0 = geoData.results[0];
                 const resolvedName = `${r0.name}, ${r0.country || ''}`;
-                await fetchAndRenderNDVIField(r0.latitude, r0.longitude, cropName || "Wheat", 12.5, `${resolvedName} Farm Parcel`);
+                await fetchAndRenderNDVIField(r0.latitude, r0.longitude, safeCrop, hectares, `${resolvedName} ${safeCrop} Parcel`);
                 return;
             }
         }
 
-        // Fallback: estimate
-        await fetchAndRenderNDVIField(30.90, 75.85, cropName || "Wheat", 10.0, `${cityName} Farm Field`);
+        // Fallback coordinates
+        await fetchAndRenderNDVIField(30.90, 75.85, safeCrop, hectares, `${cleanName} ${safeCrop} Parcel`);
     } catch (e) {
         console.warn("[NDVI City Geocode Error]:", e);
     }

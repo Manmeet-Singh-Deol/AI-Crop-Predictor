@@ -4,7 +4,7 @@
  * in-browser ONNX vision model, and agronomist databases.
  */
 
-const CACHE_NAME = 'agroai-cache-v1.7.0';
+const CACHE_NAME = 'agroai-cache-v1.7.1';
 const OFFLINE_URLS = [
     '/',
     '/index.html',
