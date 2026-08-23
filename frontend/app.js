@@ -186,6 +186,8 @@ const DOM = {
     
     // WhatsApp Bot Integration & Simulator
     btnOpenWhatsapp: document.getElementById('btn-open-whatsapp'),
+    btnFloatingWhatsapp: document.getElementById('btn-floating-whatsapp'),
+    btnChatWhatsappSwitch: document.getElementById('btn-chat-whatsapp-switch'),
     btnShareWhatsapp: document.getElementById('btn-share-whatsapp'),
     whatsappModal: document.getElementById('whatsapp-modal'),
     btnCloseWhatsappModal: document.getElementById('btn-close-whatsapp-modal'),
@@ -2411,22 +2413,68 @@ function handleShareToWhatsApp() {
     showToast("Opening WhatsApp with formatted crop prescription...", "success");
 }
 
+function openWhatsAppModal() {
+    const modal = DOM.whatsappModal || document.getElementById('whatsapp-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.style.display = 'flex';
+    }
+}
+
+function closeWhatsAppModal() {
+    const modal = DOM.whatsappModal || document.getElementById('whatsapp-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.style.display = 'none';
+    }
+}
+
 function setupWhatsAppBotSimulator() {
-    // 1. Modal Toggles
+    // 1. Modal Open Triggers
     if (DOM.btnOpenWhatsapp) {
-        DOM.btnOpenWhatsapp.addEventListener('click', () => {
-            if (DOM.whatsappModal) {
-                DOM.whatsappModal.classList.remove('hidden');
-                DOM.whatsappModal.classList.add('flex');
-            }
+        DOM.btnOpenWhatsapp.addEventListener('click', (e) => {
+            e.preventDefault();
+            openWhatsAppModal();
         });
     }
 
+    if (DOM.btnFloatingWhatsapp) {
+        DOM.btnFloatingWhatsapp.addEventListener('click', (e) => {
+            e.preventDefault();
+            openWhatsAppModal();
+        });
+    }
+
+    if (DOM.btnChatWhatsappSwitch) {
+        DOM.btnChatWhatsappSwitch.addEventListener('click', (e) => {
+            e.preventDefault();
+            openWhatsAppModal();
+        });
+    }
+
+    // Global Click Delegation Fallback
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('#btn-open-whatsapp, #btn-floating-whatsapp, #btn-chat-whatsapp-switch');
+        if (btn) {
+            e.preventDefault();
+            openWhatsAppModal();
+        }
+    });
+
+    // Modal Close Triggers
     if (DOM.btnCloseWhatsappModal) {
-        DOM.btnCloseWhatsappModal.addEventListener('click', () => {
-            if (DOM.whatsappModal) {
-                DOM.whatsappModal.classList.add('hidden');
-                DOM.whatsappModal.classList.remove('flex');
+        DOM.btnCloseWhatsappModal.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeWhatsAppModal();
+        });
+    }
+
+    if (DOM.whatsappModal) {
+        DOM.whatsappModal.addEventListener('click', (e) => {
+            if (e.target === DOM.whatsappModal) {
+                closeWhatsAppModal();
             }
         });
     }

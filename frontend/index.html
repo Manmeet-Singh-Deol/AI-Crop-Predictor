@@ -968,8 +968,16 @@
     <!-- AI AGRONOMIST CHATBOT FLOATING WIDGET & MODAL WINDOW -->
     <!-- ========================================================= -->
 
-    <!-- Floating Chatbot Launcher Button -->
-    <div id="ai-chatbot-launcher" class="fixed bottom-6 right-6 z-50 flex items-center">
+    <!-- Floating Chatbot Launcher Buttons -->
+    <div id="ai-chatbot-launcher" class="fixed bottom-6 right-4 sm:right-6 z-50 flex items-center space-x-2">
+        <!-- Floating WhatsApp Bot Launcher -->
+        <button id="btn-floating-whatsapp" class="flex items-center space-x-2 px-3.5 py-3 rounded-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold text-xs shadow-2xl transition-all transform hover:scale-105 active:scale-95 border border-emerald-400/40" title="Launch WhatsApp Diagnostic Bot">
+            <i class="fa-brands fa-whatsapp text-base text-white"></i>
+            <span class="font-['Plus_Jakarta_Sans'] tracking-wide">WhatsApp Bot</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-950/70 text-emerald-300 font-mono border border-emerald-400/30">WA</span>
+        </button>
+
+        <!-- Floating AI Agronomist Launcher -->
         <button id="btn-open-chatbot" class="chat-launcher-btn flex items-center space-x-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-600 via-brand-600 to-teal-600 text-white font-bold text-xs shadow-2xl hover:from-emerald-500 hover:to-teal-500 transition-all transform hover:scale-105 active:scale-95 group border border-emerald-400/30">
             <div class="relative flex items-center justify-center w-6 h-6 rounded-full bg-white/20 text-white">
                 <i class="fa-solid fa-robot text-sm"></i>
@@ -1000,6 +1008,9 @@
                 </div>
             </div>
             <div class="flex items-center space-x-1">
+                <button id="btn-chat-whatsapp-switch" title="Open WhatsApp Crop Doctor" class="p-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-slate-800 transition text-xs flex items-center space-x-1">
+                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                </button>
                 <button id="btn-voice-toggle" title="Toggle Voice Read Aloud" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition text-xs flex items-center space-x-1">
                     <i class="fa-solid fa-volume-high text-emerald-400"></i>
                 </button>
@@ -1100,7 +1111,7 @@
     <!-- ========================================================= -->
     <!-- WHATSAPP DIAGNOSTIC BOT SIMULATOR & PLAYGROUND MODAL -->
     <!-- ========================================================= -->
-    <div id="whatsapp-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4">
+    <div id="whatsapp-modal" class="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4">
         <div class="bg-[#0b141a] border border-emerald-900/60 rounded-3xl w-full max-w-md h-[680px] max-h-[92vh] shadow-2xl flex flex-col overflow-hidden text-slate-100 font-sans relative">
             
             <!-- WhatsApp Phone Top Header -->
