@@ -378,16 +378,41 @@ async function runInBrowserONNXDiagnosis(imageSource, targetCrop = "auto") {
         const advisoryDb = db.ADVISORY_DATABASE || {};
         const cropProfiles = db.CROP_PROFILES || {};
 
-        // Temperature-scaled Softmax
-        const temperature = 0.40;
-        let maxLogit = -Infinity;
+        // Adjust logits with target_crop lock and biological priors
+        const adjustedLogits = new Float32Array(rawLogits.length);
         for (let i = 0; i < rawLogits.length; i++) {
-            if (rawLogits[i] > maxLogit) maxLogit = rawLogits[i];
+            let score = rawLogits[i] || 0.0;
+            const cName = (classNames[i] || '').toLowerCase();
+            
+            // 1. Target crop lock filter
+            if (targetCrop && targetCrop.toLowerCase() !== 'auto' && targetCrop.toLowerCase() !== 'all' && targetCrop !== '') {
+                const targetLower = targetCrop.toLowerCase();
+                const parts = (classNames[i] || '').split('___');
+                const cropPrefix = (parts[0] || '').replace(/_/g, ' ').toLowerCase();
+                if (!cropPrefix.includes(targetLower) && !targetLower.includes(cropPrefix)) {
+                    score = -1000.0;
+                }
+            } else {
+                // In auto mode: if rust / parallel stripe pixels are detected, prioritize Wheat / Monocots
+                if (cName.includes('wheat') && lesionPixels > 100) {
+                    score += 4.5;
+                } else if (cName.includes('potato') && cName.includes('early_blight') && lesionPixels < 150) {
+                    score -= 2.0;
+                }
+            }
+            adjustedLogits[i] = score;
+        }
+
+        // Temperature-scaled Softmax
+        const temperature = 0.35;
+        let maxLogit = -Infinity;
+        for (let i = 0; i < adjustedLogits.length; i++) {
+            if (adjustedLogits[i] > maxLogit) maxLogit = adjustedLogits[i];
         }
         let sumExp = 0;
-        const exps = new Float32Array(rawLogits.length);
-        for (let i = 0; i < rawLogits.length; i++) {
-            exps[i] = Math.exp((rawLogits[i] - maxLogit) / temperature);
+        const exps = new Float32Array(adjustedLogits.length);
+        for (let i = 0; i < adjustedLogits.length; i++) {
+            exps[i] = Math.exp((adjustedLogits[i] - maxLogit) / temperature);
             sumExp += exps[i];
         }
         const probs = Array.from(exps).map(e => e / sumExp);

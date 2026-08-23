@@ -328,12 +328,17 @@ class CropInferenceEngine:
         )
         foliage_px = max(1, np.count_nonzero(foliage))
         
-        # 2. Symptom color masks
-        healthy_green = np.count_nonzero((h >= 35) & (h <= 85) & (s >= 45) & (v >= 35) & foliage)
-        chlorosis = np.count_nonzero((h >= 18) & (h <= 35) & (s >= 55) & (v >= 80) & foliage)
-        necrotic = np.count_nonzero((h >= 5) & (h <= 20) & (s >= 30) & (v >= 15) & (v <= 165) & foliage)
-        white_powdery = np.count_nonzero((s <= 40) & (v >= 165) & foliage)
-        rust_orange = np.count_nonzero((h >= 8) & (h <= 22) & (s >= 80) & (v >= 75) & foliage)
+        # 2. Symptom color masks (calibrated for real field photography across crops)
+        healthy_green = np.count_nonzero((h >= 35) & (h <= 85) & (s >= 35) & (v >= 30) & foliage)
+        chlorosis = np.count_nonzero((h >= 18) & (h <= 35) & (s >= 35) & (v >= 65) & foliage)
+        necrotic = np.count_nonzero((h >= 5) & (h <= 20) & (s >= 25) & (v >= 15) & (v <= 165) & foliage)
+        white_powdery = np.count_nonzero((s <= 40) & (v >= 155) & foliage)
+        
+        # Rust detection: Yellow stripe rust (Puccinia striiformis) & Brown rust (Puccinia triticina)
+        rust_orange = np.count_nonzero((h >= 6) & (h <= 24) & (s >= 35) & (v >= 35) & foliage)
+        rust_yellow = np.count_nonzero((h >= 15) & (h <= 36) & (s >= 35) & (v >= 50) & foliage)
+        total_rust = max(rust_orange, rust_yellow, int(np.count_nonzero((h >= 8) & (h <= 32) & (s >= 30) & (v >= 40) & foliage)))
+        
         scab_olive = np.count_nonzero((h >= 15) & (h <= 45) & (s >= 25) & (v >= 15) & (v <= 85) & foliage)
         
         # 3. Pathognomonic Red Streak anywhere on foliage (not locked to center column)
@@ -388,6 +393,7 @@ class CropInferenceEngine:
         energy_x = float(np.sum(np.abs(sobel_x)[rotated_foliage])) if rotated_foliage.any() else 1.0
         energy_y = float(np.sum(np.abs(sobel_y)[rotated_foliage])) if rotated_foliage.any() else 1.0
         directional_vein_ratio = energy_x / (energy_x + energy_y + 1e-5)
+        directional_anisotropy = abs(directional_vein_ratio - 0.5) * 2.0  # 0.0 = isotropic (dicot), 1.0 = parallel (monocot/cereal)
         
         # Color variance across foliage
         green_channel = rgb_array[:, :, 1].astype(np.float32)
@@ -398,7 +404,7 @@ class CropInferenceEngine:
             "healthy_score": healthy_green / foliage_px,
             "necrotic_score": necrotic / foliage_px,
             "chlorosis_score": chlorosis / foliage_px,
-            "rust_score": rust_orange / foliage_px,
+            "rust_score": total_rust / foliage_px,
             "powder_score": white_powdery / foliage_px,
             "scab_score": scab_olive / foliage_px,
             "red_midrib_score": red_streak_score,
@@ -408,15 +414,16 @@ class CropInferenceEngine:
             "circularity": circularity,
             "solidity": solidity,
             "directional_vein_ratio": directional_vein_ratio,
+            "directional_anisotropy": directional_anisotropy,
             "color_uniformity": color_uniformity
         }
 
     def _compute_crop_affinity(self, h: Dict[str, float]) -> Dict[str, float]:
         """
         Rotation-invariant multi-feature crop affinity scoring.
-        Uses true leaf aspect ratio (via minAreaRect), solidity, pale midrib,
-        and red streak to cleanly separate Monocots (Sugarcane/Corn/Rice) from
-        Dicots (Tomato/Potato/Apple/Squash/Grape) under ANY photo orientation.
+        Uses true leaf aspect ratio, directional parallel vein anisotropy,
+        color pustules, and pale midrib to cleanly separate Monocots/Cereals (Wheat/Sugarcane/Corn/Rice)
+        from Dicots (Tomato/Potato/Apple/Squash/Grape).
         """
         tar = h["true_aspect_ratio"]
         sol = h["solidity"]
@@ -427,37 +434,46 @@ class CropInferenceEngine:
         nec = h["necrotic_score"]
         chl = h["chlorosis_score"]
         rst = h["rust_score"]
+        aniso = h.get("directional_anisotropy", 0.0)
         
-        # 1. Monocot vs Dicot Voting based on true morphology
+        # 1. Monocot vs Dicot Voting based on true morphology & venation
         monocot_votes = 0
         dicot_votes = 0
         
         # True Aspect Ratio (Length / Width of the leaf blade regardless of rotation)
-        if tar > 3.2:
+        if tar > 2.8:
             monocot_votes += 6
-        elif tar > 2.1:
+        elif tar > 1.8:
             monocot_votes += 4
-        elif tar < 1.35:
+        elif tar < 1.35 and aniso < 0.2:
             dicot_votes += 3
         else:
             dicot_votes += 1
             
-        # Solidity: Smooth linear blade has high solidity; lobed leaves have lower solidity
-        if sol > 0.96 and tar > 2.0:
+        # Directional Vein Anisotropy (Parallel linear veins in Wheat/Sugarcane/Rice/Corn)
+        if aniso > 0.35:
+            monocot_votes += 5
+        elif aniso > 0.22:
             monocot_votes += 3
-        elif sol < 0.88:
+            
+        # Rust presence on narrow/moderate leaf strongly indicates Wheat / Cereal rust
+        if rst > 0.015 and tar > 1.4:
+            monocot_votes += 6
+            
+        # Solidity: Smooth linear blade has high solidity; lobed leaves have lower solidity
+        if sol > 0.94 and tar > 1.7:
+            monocot_votes += 3
+        elif sol < 0.85:
             dicot_votes += 4
             
         # Circularity: Monocots are long and elongated (circ < 0.45); broad dicots have circ > 0.60
-        if circ > 0.65:
+        if circ > 0.65 and aniso < 0.2:
             dicot_votes += 5
-        elif circ > 0.52:
-            dicot_votes += 2
-        elif circ < 0.38:
-            monocot_votes += 3
+        elif circ < 0.42:
+            monocot_votes += 4
             
         # Pale central midrib: definitive monocot leaf spine
-        if pmb > 0.035 and tar > 1.8:
+        if pmb > 0.030 and tar > 1.6:
             monocot_votes += 4
             
         # Red streak: pathognomonic sugarcane red rot
@@ -465,38 +481,41 @@ class CropInferenceEngine:
             monocot_votes += 6
             
         # Consensus evaluation
-        is_monocot = (monocot_votes >= 4 and monocot_votes > dicot_votes)
-        is_dicot = (dicot_votes >= 3 and dicot_votes > monocot_votes)
+        is_monocot = (monocot_votes >= 3 and monocot_votes >= dicot_votes)
+        is_dicot = (dicot_votes >= 4 and dicot_votes > monocot_votes)
         
         affinities: Dict[str, float] = {}
-        monocot_crops = ["Sugarcane", "Wheat", "Corn", "Rice", "Banana"]
+        monocot_crops = ["Wheat", "Sugarcane", "Corn", "Rice", "Banana"]
         
         for c_name in CROP_PROFILES.keys():
             score = 1.0
             
             if c_name in monocot_crops:
                 if is_monocot:
-                    score += 12.0
-                    if c_name == "Wheat" and tar > 3.2:
-                        score += 16.0
+                    score += 14.0
+                    if c_name == "Wheat":
+                        # Wheat linear leaf blade & rust stripes
+                        if rst > 0.01: score += 22.0 + (rst * 30.0)
+                        elif tar > 2.0 or aniso > 0.25: score += 18.0
+                        else: score += 12.0
                     elif c_name == "Sugarcane":
-                        if rmb > 0.015: score += 20.0
-                        elif pmb > 0.035: score += 14.0
+                        if rmb > 0.015: score += 22.0
+                        elif pmb > 0.035: score += 16.0
                         elif tar > 2.0: score += 8.0
                     elif c_name == "Corn":
-                        if chl > 0.10 and circ < 0.35: score += 16.0
-                        elif tar > 2.2 and tar < 3.0: score += 8.0
+                        if chl > 0.08 and circ < 0.40: score += 16.0
+                        elif tar > 2.0 and tar < 3.2: score += 10.0
                     elif c_name == "Banana":
                         if circ < 0.45 and tar < 2.0: score += 16.0
                     elif c_name == "Rice":
-                        if tar > 4.0: score += 10.0
+                        if tar > 3.5: score += 12.0
                 elif is_dicot:
-                    score -= 14.0
+                    score -= 10.0
                 else:
-                    if tar > 3.2 and c_name == "Wheat": score += 8.0
+                    if rst > 0.01 and c_name == "Wheat": score += 14.0
                     elif tar > 1.8 and c_name == "Sugarcane" and pmb > 0.03: score += 8.0
                     elif circ < 0.45 and c_name == "Banana": score += 8.0
-                    else: score -= 2.0
+                    else: score += 2.0
             else:
                 if is_dicot:
                     score += 10.0
@@ -504,7 +523,7 @@ class CropInferenceEngine:
                         score += 16.0
                     elif c_name == "Cassava" and sol < 0.60:
                         score += 16.0
-                    elif c_name == "Coffee" and tar > 1.5 and circ > 0.70 and rst > 0.02:
+                    elif c_name == "Coffee" and tar > 1.4 and circ > 0.65 and rst > 0.02:
                         score += 16.0
                     elif c_name == "Tea" and tar < 1.6 and pwd > 0.01:
                         score += 8.0
@@ -514,14 +533,15 @@ class CropInferenceEngine:
                         score += 14.0
                     elif c_name == "Tomato" and nec > 0.08:
                         score += 14.0
-                    elif c_name == "Potato" and tar < 1.4 and (chl > 0.03 or nec > 0.03):
-                        score += 16.0
+                    elif c_name == "Potato" and sol < 0.90 and circ > 0.50 and (chl > 0.04 or nec > 0.04):
+                        # Potato only boosted if genuinely dicot morphology
+                        score += 14.0
                 elif is_monocot:
-                    score -= 12.0
+                    score -= 14.0
                 else:
                     if c_name == "Cotton" and sol < 0.70: score += 10.0
-                    elif c_name == "Coffee" and tar > 1.5 and circ > 0.70: score += 8.0
-                    elif tar < 1.5: score += 4.0
+                    elif c_name == "Coffee" and tar > 1.4 and circ > 0.65: score += 8.0
+                    elif tar < 1.4 and not is_monocot: score += 4.0
                     
             affinities[c_name] = score
             
@@ -584,9 +604,20 @@ class CropInferenceEngine:
                 if rmb > 0.015: score += 35.0 + (rmb * 50.0)
                 elif matched_crop == "Sugarcane" and pmb > 0.03: score += 20.0
             elif "Yellow_Rust" in d_suffix:
-                if matched_crop == "Wheat" and (rst > 0.015 or chl > 0.02): score += 35.0 + (rst * 40.0)
+                if matched_crop == "Wheat" and (rst > 0.006 or chl > 0.015 or c_aff > 0.0):
+                    score += 42.0 + (rst * 50.0)
             elif "Brown_Rust" in d_suffix:
-                if matched_crop == "Wheat" and rst > 0.015: score += 30.0 + (rst * 35.0)
+                if matched_crop == "Wheat" and (rst > 0.006 or nec > 0.015 or c_aff > 0.0):
+                    score += 38.0 + (rst * 45.0)
+            elif "Powdery_Mildew" in d_suffix:
+                if matched_crop == "Wheat" and (pwd > 0.01 or chl > 0.02):
+                    score += 36.0 + (pwd * 40.0)
+                elif matched_crop == "Squash" and pwd > 0.02:
+                    score += 35.0 + (pwd * 40.0)
+                elif matched_crop == "Cherry" and pwd > 0.02:
+                    score += 22.0
+                elif pwd > 0.02:
+                    score += 10.0
             elif "Black_Sigatoka" in d_suffix:
                 if matched_crop == "Banana" and (nec > 0.015 or chl > 0.02): score += 35.0 + (nec * 40.0)
             elif "Yellow_Sigatoka" in d_suffix:
@@ -608,12 +639,6 @@ class CropInferenceEngine:
                 if rst > 0.015 or pmb > 0.03: score += 35.0 + (rst * 40.0)
             elif d_suffix.startswith("Common_rust") and matched_crop == "Corn":
                 if rst > 0.015: score += 28.0 + (rst * 30.0)
-            elif "Powdery_mildew" in d_suffix:
-                if pwd > 0.02:
-                    if matched_crop == "Squash": score += 35.0 + (pwd * 40.0)
-                    elif matched_crop == "Wheat": score += 26.0 + (pwd * 35.0)
-                    elif matched_crop == "Cherry": score += 22.0
-                    else: score += 10.0
             elif "Apple_scab" in d_suffix:
                 if scb > 0.02 and matched_crop == "Apple": score += 35.0 + (scb * 40.0)
             elif "Northern_Leaf_Blight" in d_suffix:
@@ -626,14 +651,14 @@ class CropInferenceEngine:
                     score += 22.0
             elif "Late_blight" in d_suffix:
                 if nec > 0.10:
-                    if matched_crop == "Tomato": score += 42.0 + (nec * 45.0)
-                    elif matched_crop == "Potato": score += 25.0 + (nec * 20.0)
+                    if matched_crop == "Tomato" and c_aff > 0.0: score += 42.0 + (nec * 45.0)
+                    elif matched_crop == "Potato" and c_aff > 0.0: score += 25.0 + (nec * 20.0)
                 elif nec > 0.04:
-                    if matched_crop == "Tomato": score += 20.0
+                    if matched_crop == "Tomato" and c_aff > 0.0: score += 20.0
             elif "Early_blight" in d_suffix:
                 if nec < 0.10 and nec > 0.02 and chl > 0.02:
-                    if matched_crop == "Potato": score += 36.0 + (chl * 30.0)
-                    elif matched_crop == "Tomato": score += 16.0 + (chl * 10.0)
+                    if matched_crop == "Potato" and c_aff > 2.0: score += 22.0 + (chl * 20.0)
+                    elif matched_crop == "Tomato" and c_aff > 2.0: score += 16.0 + (chl * 10.0)
             elif "Smut" in d_suffix:
                 if matched_crop == "Sugarcane" and c_aff > 2.0: score += 10.0
             elif "Yellow_Leaf" in d_suffix:
