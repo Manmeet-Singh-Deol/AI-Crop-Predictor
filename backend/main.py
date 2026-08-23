@@ -242,20 +242,68 @@ async def diagnose_sample_by_id(sample_id: str):
 async def get_weather_risk(
     city: Optional[str] = Query(None),
     lat: Optional[float] = Query(None),
-    lon: Optional[float] = Query(None)
+    lon: Optional[float] = Query(None),
+    chemical: Optional[str] = Query("systemic_fungicide")
 ):
     """
-    Get live microclimate weather and disease outbreak risk forecast.
+    Get live microclimate weather, disease outbreak risk forecast, and 48-hour spray window suitability.
     """
     try:
+        chem = chemical or "systemic_fungicide"
         if lat is not None and lon is not None:
-            return await fetch_weather_by_coords(lat, lon, f"Coordinates ({lat:.2f}, {lon:.2f})")
+            return await fetch_weather_by_coords(lat, lon, f"Coordinates ({lat:.2f}, {lon:.2f})", chemical_key=chem)
         elif city:
-            return await search_city_and_get_risk(city)
+            return await search_city_and_get_risk(city, chemical_key=chem)
         else:
-            return await fetch_weather_by_coords(36.6777, -121.6555, "Salinas Valley, CA (Default)")
+            return await fetch_weather_by_coords(36.6777, -121.6555, "Salinas Valley, CA (Default)", chemical_key=chem)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Weather API error: {str(e)}")
+
+@app.get("/api/spray-window")
+async def get_spray_window_endpoint(
+    city: Optional[str] = Query(None),
+    lat: Optional[float] = Query(None),
+    lon: Optional[float] = Query(None),
+    chemical: Optional[str] = Query("systemic_fungicide")
+):
+    """
+    Dedicated endpoint for optimal spray window, Delta-T psychrometrics, and rainfastness timeline.
+    """
+    try:
+        chem = chemical or "systemic_fungicide"
+        if lat is not None and lon is not None:
+            w = await fetch_weather_by_coords(lat, lon, f"Coordinates ({lat:.2f}, {lon:.2f})", chemical_key=chem)
+        elif city:
+            w = await search_city_and_get_risk(city, chemical_key=chem)
+        else:
+            w = await fetch_weather_by_coords(36.6777, -121.6555, "Salinas Valley, CA (Default)", chemical_key=chem)
+            
+        return {
+            "location": w.get("location"),
+            "current_weather": w.get("current_weather"),
+            "spray_window_analysis": w.get("spray_window_analysis")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Spray window calculation error: {str(e)}")
+
+@app.get("/api/spray-chemicals")
+async def get_spray_chemicals_endpoint():
+    """List supported agricultural chemical formulation categories and rainfastness windows."""
+    from backend.spray_engine import RAINFASTNESS_DB
+    return {
+        "chemicals": [
+            {
+                "key": k,
+                "name": v["name"],
+                "type": v["type"],
+                "rainfast_hours": v["rainfast_hours"],
+                "description": v["description"],
+                "ideal_delta_t_range": f"{v['ideal_delta_t_min']}°C - {v['ideal_delta_t_max']}°C",
+                "max_wind_kmh": v["max_wind_kmh"]
+            }
+            for k, v in RAINFASTNESS_DB.items()
+        ]
+    }
 
 @app.get("/api/popular-locations")
 async def get_popular_regions():

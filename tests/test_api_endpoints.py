@@ -212,6 +212,43 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(r_data["validation_accuracy"], 100.0)
         self.assertIn("hot_reload", r_data)
 
+    def test_16_spray_window_psychrometrics_and_rainfastness(self):
+        """Verify Delta-T psychrometrics, chemical rainfastness database, and spray window REST endpoints."""
+        from backend.spray_engine import calculate_delta_t, evaluate_wind_drift_hazard, RAINFASTNESS_DB
+
+        # 1. Delta-T psychrometric computation test
+        dt = calculate_delta_t(temp_c=25.0, humidity_pct=60.0)
+        self.assertIn("delta_t_c", dt)
+        self.assertGreater(dt["delta_t_c"], 4.0)
+        self.assertLess(dt["delta_t_c"], 8.0)
+        self.assertEqual(dt["rating"], "optimal")
+
+        # 2. Inversion and Drift detection tests
+        inversion = evaluate_wind_drift_hazard(wind_speed_kmh=1.5)
+        self.assertEqual(inversion["rating"], "caution")
+        self.assertIn("Inversion", inversion["status"])
+
+        drift = evaluate_wind_drift_hazard(wind_speed_kmh=26.0)
+        self.assertEqual(drift["rating"], "unsuitable")
+
+        # 3. Test /api/spray-chemicals
+        chem_res = self.client.get("/api/spray-chemicals")
+        self.assertEqual(chem_res.status_code, 200)
+        c_data = chem_res.json()
+        self.assertIn("chemicals", c_data)
+        self.assertGreaterEqual(len(c_data["chemicals"]), 6)
+
+        # 4. Test /api/spray-window endpoint
+        spray_res = self.client.get("/api/spray-window?chemical=systemic_fungicide")
+        self.assertEqual(spray_res.status_code, 200)
+        s_data = spray_res.json()
+        self.assertIn("spray_window_analysis", s_data)
+        analysis = s_data["spray_window_analysis"]
+        self.assertIn("next_safe_window", analysis)
+        self.assertIn("hourly_timeline", analysis)
+        self.assertEqual(len(analysis["hourly_timeline"]), 48)
+
 if __name__ == "__main__":
     unittest.main()
+
 

@@ -3533,5 +3533,37 @@ window.AGROAI_OFFLINE_DB = {
         "high_risk_weather": "Warm tropical sunshine with regular irrigation."
       }
     }
+  },
+  "RAINFASTNESS_DB": {
+    "systemic_fungicide": {
+      "name": "Systemic Fungicide (e.g. Azoxystrobin, Difenoconazole)",
+      "type": "Systemic",
+      "rainfast_hours": 2.5
+    },
+    "contact_fungicide": {
+      "name": "Contact Protectant (e.g. Mancozeb, Copper)",
+      "type": "Contact Surface Protectant",
+      "rainfast_hours": 5.0
+    },
+    "bio_fungicide": {
+      "name": "Biological Agent (e.g. Trichoderma, Bacillus)",
+      "type": "Biological Agent",
+      "rainfast_hours": 4.0
+    },
+    "neem_botanical": {
+      "name": "Botanical / Neem Oil",
+      "type": "Botanical Oil",
+      "rainfast_hours": 3.0
+    },
+    "systemic_insecticide": {
+      "name": "Systemic Insecticide",
+      "type": "Systemic Insecticide",
+      "rainfast_hours": 2.0
+    },
+    "foliar_fertilizer": {
+      "name": "Foliar NPK / Micronutrients",
+      "type": "Foliar Nutrition",
+      "rainfast_hours": 2.0
+    }
   }
 };

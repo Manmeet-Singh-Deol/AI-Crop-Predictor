@@ -143,6 +143,22 @@ const DOM = {
     overallThreatSummary: document.getElementById('overall-threat-summary'),
     forecastCardsContainer: document.getElementById('forecast-cards-container'),
     quickCityBtns: document.querySelectorAll('.quick-city-btn'),
+
+    // Optimal Spray Window & Rainfastness Engine
+    sprayEngineContainer: document.getElementById('spray-engine-container'),
+    sprayChemicalSelect: document.getElementById('spray-chemical-select'),
+    sprayDeltaTBadge: document.getElementById('spray-delta-t-badge'),
+    sprayDeltaTVal: document.getElementById('spray-delta-t-val'),
+    sprayDeltaTDesc: document.getElementById('spray-delta-t-desc'),
+    sprayWindBadge: document.getElementById('spray-wind-badge'),
+    sprayWindVal: document.getElementById('spray-wind-val'),
+    sprayWindDesc: document.getElementById('spray-wind-desc'),
+    sprayWashoutBadge: document.getElementById('spray-washout-badge'),
+    sprayRainfastHoursVal: document.getElementById('spray-rainfast-hours-val'),
+    sprayWashoutDesc: document.getElementById('spray-washout-desc'),
+    sprayWindowHeadline: document.getElementById('spray-window-headline'),
+    sprayWindowRec: document.getElementById('spray-window-rec'),
+    sprayTimelineBars: document.getElementById('spray-timeline-bars'),
     
     // History
     historyCardsContainer: document.getElementById('history-cards-container'),
@@ -613,7 +629,28 @@ function handleDiagnosisSuccess(data) {
         recalculateDosage();
     }
     
-    // 7. Synchronize Live Diagnostic Context with AI Agronomist Chatbot
+    // 7. Auto-Synchronize Spray Engine Chemical Formulation
+    if (DOM.sprayChemicalSelect) {
+        const pathType = (advisory.pathogen_type || "").toLowerCase();
+        const diseaseName = (top.disease || "").toLowerCase();
+        if (pathType.includes("fungal") || diseaseName.includes("rust") || diseaseName.includes("blight")) {
+            DOM.sprayChemicalSelect.value = "systemic_fungicide";
+        } else if (pathType.includes("bacterial") || diseaseName.includes("bacterial")) {
+            DOM.sprayChemicalSelect.value = "contact_fungicide";
+        } else if (diseaseName.includes("mite") || diseaseName.includes("aphid") || diseaseName.includes("fly") || diseaseName.includes("miner")) {
+            DOM.sprayChemicalSelect.value = "systemic_insecticide";
+        } else if (pathType.includes("healthy") || diseaseName.includes("healthy")) {
+            DOM.sprayChemicalSelect.value = "foliar_fertilizer";
+        }
+        
+        // Refresh spray window analysis for the diagnosed formulation
+        const curCity = DOM.weatherCityInput.value.trim() || DOM.weatherLocationLabel.textContent;
+        if (curCity) {
+            fetchWeatherRisk(curCity);
+        }
+    }
+    
+    // 8. Synchronize Live Diagnostic Context with AI Agronomist Chatbot
     updateChatContext(
         top.crop || advisory.crop,
         top.disease || advisory.disease,
@@ -622,7 +659,7 @@ function handleDiagnosisSuccess(data) {
         severity.severity_stage
     );
     
-    // 8. Enable Export PDF buttons
+    // 9. Enable Export PDF buttons
     DOM.btnExportPdfNav.disabled = false;
     DOM.btnExportPdfCard.disabled = false;
 }
@@ -836,15 +873,22 @@ async function recalculateDosage() {
     }
 }
 
-// --- Weather Outbreak Risk Engine ---
+// --- Weather Outbreak Risk & Optimal Spray Window Engine ---
 async function fetchWeatherRisk(city = null, lat = null, lon = null) {
     try {
         let url = '/api/weather-risk';
+        const chem = DOM.sprayChemicalSelect ? DOM.sprayChemicalSelect.value : 'systemic_fungicide';
+        const params = new URLSearchParams();
+        
         if (lat !== null && lon !== null) {
-            url += `?lat=${lat}&lon=${lon}`;
+            params.set('lat', lat);
+            params.set('lon', lon);
         } else if (city) {
-            url += `?city=${encodeURIComponent(city)}`;
+            params.set('city', city);
         }
+        params.set('chemical', chem);
+
+        url += `?${params.toString()}`;
         
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch microclimate forecast.");
@@ -863,6 +907,7 @@ function renderWeatherRisk(data) {
     
     const cur = data.current_weather || {};
     const epi = data.epidemiological_risk || {};
+    const spray = data.spray_window_analysis || null;
     
     DOM.weatherTempVal.textContent = cur.temperature_c !== undefined ? Math.round(cur.temperature_c) : "--";
     DOM.weatherHumidityVal.textContent = `RH: ${cur.humidity_pct || '--'}%`;
@@ -903,6 +948,138 @@ function renderWeatherRisk(data) {
         `;
         DOM.forecastCardsContainer.appendChild(card);
     });
+
+    // Render Optimal Spray Window & Rainfastness Engine
+    if (spray) {
+        renderSprayWindowAnalysis(spray, cur);
+    }
+}
+
+function renderSprayWindowAnalysis(sprayData, current) {
+    if (!sprayData) return;
+
+    const deltaT = current.delta_t || {};
+    const windDrift = current.wind_drift || {};
+    const nextWin = sprayData.next_safe_window || {};
+    const chem = sprayData.chemical_selected || {};
+    const timeline = sprayData.hourly_timeline || [];
+
+    // 1. Delta-T Evaporation Gauge
+    if (DOM.sprayDeltaTVal) {
+        DOM.sprayDeltaTVal.textContent = deltaT.delta_t_c !== undefined ? deltaT.delta_t_c.toFixed(1) : "--.-";
+        DOM.sprayDeltaTVal.style.color = deltaT.color || "#10b981";
+    }
+    if (DOM.sprayDeltaTBadge) {
+        DOM.sprayDeltaTBadge.textContent = (deltaT.rating || "IDEAL").toUpperCase();
+        DOM.sprayDeltaTBadge.style.color = deltaT.color || "#10b981";
+        DOM.sprayDeltaTBadge.style.borderColor = (deltaT.color || "#10b981") + "60";
+    }
+    if (DOM.sprayDeltaTDesc) {
+        DOM.sprayDeltaTDesc.textContent = deltaT.recommendation || "Target range: 2.0°C – 8.0°C for optimal droplet survival.";
+    }
+
+    // 2. Wind Drift & Inversion Hazard
+    if (DOM.sprayWindVal) {
+        DOM.sprayWindVal.textContent = windDrift.wind_speed_kmh !== undefined ? windDrift.wind_speed_kmh.toFixed(1) : "--.-";
+        DOM.sprayWindVal.style.color = windDrift.color || "#10b981";
+    }
+    if (DOM.sprayWindBadge) {
+        DOM.sprayWindBadge.textContent = (windDrift.rating || "SAFE").toUpperCase();
+        DOM.sprayWindBadge.style.color = windDrift.color || "#10b981";
+        DOM.sprayWindBadge.style.borderColor = (windDrift.color || "#10b981") + "60";
+    }
+    if (DOM.sprayWindDesc) {
+        DOM.sprayWindDesc.textContent = windDrift.description || "Safe range: 3 – 15 km/h. Avoid thermal inversions.";
+    }
+
+    // 3. Rainfastness & Washout Protection
+    const currentHour = timeline[0] || {};
+    const forwardRain = currentHour.forward_rain_in_window_mm || 0.0;
+    if (DOM.sprayRainfastHoursVal) {
+        DOM.sprayRainfastHoursVal.textContent = chem.rainfast_hours !== undefined ? `${chem.rainfast_hours}h` : "3h";
+    }
+    if (DOM.sprayWashoutBadge) {
+        if (forwardRain > 0.3) {
+            DOM.sprayWashoutBadge.textContent = `⚠️ ${forwardRain.toFixed(1)}mm Rain Expected`;
+            DOM.sprayWashoutBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950/60 text-rose-400 border border-rose-500/40";
+        } else {
+            DOM.sprayWashoutBadge.textContent = `✅ 0.0mm Rain in Next ${chem.rainfast_hours}h`;
+            DOM.sprayWashoutBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-teal-950/60 text-teal-400 border border-teal-500/30";
+        }
+    }
+    if (DOM.sprayWashoutDesc) {
+        DOM.sprayWashoutDesc.textContent = forwardRain > 0.3
+            ? `High washout hazard! Rain within ${chem.rainfast_hours}h absorption window will strip applied product.`
+            : `Safe absorption clearance window. No significant precipitation forecast during the next ${chem.rainfast_hours} hours.`;
+    }
+
+    // 4. Next Recommended Spray Window Banner
+    if (DOM.sprayWindowHeadline && DOM.sprayWindowRec) {
+        if (nextWin.available) {
+            DOM.sprayWindowHeadline.innerHTML = `🌟 ${nextWin.headline}`;
+            DOM.sprayWindowRec.textContent = nextWin.recommendation;
+        } else {
+            DOM.sprayWindowHeadline.innerHTML = `⚠️ ${nextWin.headline}`;
+            DOM.sprayWindowRec.textContent = nextWin.recommendation;
+        }
+    }
+
+    // 5. 48-Hour Hourly Timeline Bars
+    if (DOM.sprayTimelineBars) {
+        DOM.sprayTimelineBars.innerHTML = '';
+        let lastDate = "";
+
+        timeline.forEach((h) => {
+            // Day divider pill if new date
+            if (h.display_date && h.display_date !== lastDate) {
+                lastDate = h.display_date;
+                const divider = document.createElement('div');
+                divider.className = "flex flex-col items-center justify-end h-full px-1 border-l border-slate-700/80 mr-1 flex-shrink-0";
+                divider.innerHTML = `
+                    <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-tighter mb-2 font-mono">
+                        ${new Date(h.display_date).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })}
+                    </span>
+                `;
+                DOM.sprayTimelineBars.appendChild(divider);
+            }
+
+            const barCol = document.createElement('div');
+            barCol.className = "flex-1 min-w-[28px] max-w-[40px] flex flex-col items-center justify-end h-full group relative cursor-pointer flex-shrink-0";
+
+            const barHeightPct = Math.max(14, Math.round(h.suitability_score));
+            const barBg = h.badge_color || (h.suitability_score >= 80 ? '#10b981' : (h.suitability_score >= 50 ? '#f59e0b' : '#ef4444'));
+
+            // Tooltip element
+            const tooltip = document.createElement('div');
+            tooltip.className = "hidden group-hover:block absolute bottom-full mb-2 z-30 w-52 p-2.5 rounded-xl bg-slate-950 border border-slate-700 shadow-2xl text-[10px] text-slate-200 pointer-events-none";
+            tooltip.innerHTML = `
+                <div class="flex items-center justify-between font-bold pb-1 mb-1 border-b border-slate-800">
+                    <span class="text-white">${h.display_date} ${h.display_time}</span>
+                    <span class="px-1.5 py-0.2 rounded font-mono" style="color: ${barBg}">${h.suitability_score}%</span>
+                </div>
+                <div class="space-y-0.5 text-slate-300">
+                    <div class="flex justify-between"><span>Status:</span> <strong style="color: ${barBg}">${h.status}</strong></div>
+                    <div class="flex justify-between"><span>Temp / RH:</span> <span>${h.temperature_c}°C / ${h.humidity_pct}%</span></div>
+                    <div class="flex justify-between"><span>Delta-T (ΔT):</span> <span class="font-mono font-bold">${h.delta_t_c}°C</span></div>
+                    <div class="flex justify-between"><span>Wind:</span> <span>${h.wind_speed_kmh} km/h</span></div>
+                    <div class="flex justify-between"><span>Precipitation:</span> <span>${h.precipitation_mm} mm (${h.precipitation_probability}%)</span></div>
+                    ${h.forward_rain_in_window_mm > 0 ? `<div class="flex justify-between text-rose-400 font-bold"><span>Rain in Window:</span> <span>${h.forward_rain_in_window_mm} mm</span></div>` : ''}
+                </div>
+                ${h.hazard_reasons && h.hazard_reasons.length > 0 ? `
+                    <div class="mt-1.5 pt-1 border-t border-slate-800/80 text-[9.5px] text-amber-300">
+                        ${h.hazard_reasons.slice(0, 2).map(r => `• ${r}`).join('<br>')}
+                    </div>
+                ` : ''}
+            `;
+
+            barCol.innerHTML = `
+                <div class="w-full rounded-t-md transition-all duration-300 group-hover:brightness-125" style="height: ${barHeightPct}%; background-color: ${barBg};"></div>
+                <span class="text-[9px] font-mono text-slate-400 mt-1 truncate group-hover:text-white font-medium">${h.display_time.split(':')[0]}h</span>
+            `;
+            barCol.appendChild(tooltip);
+            DOM.sprayTimelineBars.appendChild(barCol);
+        });
+    }
 }
 
 // --- Scouting Audit History ---
@@ -1300,6 +1477,17 @@ function setupEventListeners() {
         }
     });
 
+    // Quick Hubs Buttons
+    DOM.quickCityBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const city = btn.dataset.city;
+            if (city) {
+                DOM.weatherCityInput.value = city;
+                fetchWeatherRisk(city);
+            }
+        });
+    });
+
     // Geolocate
     DOM.btnGeolocateWeather.addEventListener('click', () => {
         if (navigator.geolocation) {
@@ -1309,6 +1497,15 @@ function setupEventListeners() {
             );
         }
     });
+
+    // Chemical Formulation Selector for Spray Window Engine
+    if (DOM.sprayChemicalSelect) {
+        DOM.sprayChemicalSelect.addEventListener('change', () => {
+            const city = DOM.weatherCityInput.value.trim() || DOM.weatherLocationLabel.textContent;
+            fetchWeatherRisk(city);
+            showToast(`Recalculating spray suitability for selected product...`, "info");
+        });
+    }
 
     // Language Switcher
     if (DOM.langSelector) {

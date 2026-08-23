@@ -6,6 +6,13 @@ Integrates with Open-Meteo REST API (free, open, no API key needed) and computes
 import httpx
 from typing import Dict, Any, List, Optional
 
+from backend.spray_engine import (
+    compute_spray_window_timeline,
+    calculate_delta_t,
+    evaluate_wind_drift_hazard,
+    RAINFASTNESS_DB
+)
+
 # Default major agricultural regions for quick selection
 POPULAR_LOCATIONS = [
     {"name": "Salinas Valley, CA", "lat": 36.6777, "lon": -121.6555, "country": "USA"},
@@ -109,11 +116,23 @@ def calculate_disease_risks(temp_c: float, humidity_pct: float, rain_mm: float, 
         "advisory_summary": summary
     }
 
-async def fetch_weather_by_coords(lat: float, lon: float, location_name: str = "Target Farm") -> Dict[str, Any]:
+async def fetch_weather_by_coords(
+    lat: float,
+    lon: float,
+    location_name: str = "Target Farm",
+    chemical_key: str = "systemic_fungicide"
+) -> Dict[str, Any]:
     """
-    Fetch live weather and 5-day forecast from Open-Meteo REST API.
+    Fetch live weather, 5-day forecast, and 48-hour spray window suitability from Open-Meteo REST API.
     """
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto"
+    url = (
+        f"https://api.open-meteo.com/v1/forecast?"
+        f"latitude={lat}&longitude={lon}&"
+        f"current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m,wind_gusts_10m&"
+        f"hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,uv_index,weather_code&"
+        f"daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&"
+        f"timezone=auto"
+    )
     
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(url)
@@ -122,15 +141,29 @@ async def fetch_weather_by_coords(lat: float, lon: float, location_name: str = "
         
     current = data.get("current", {})
     daily = data.get("daily", {})
+    hourly = data.get("hourly", {})
     
     temp = current.get("temperature_2m", 22.0)
     humidity = current.get("relative_humidity_2m", 65.0)
     rain = current.get("precipitation", 0.0)
     wind = current.get("wind_speed_10m", 8.0)
+    gusts = current.get("wind_gusts_10m", wind)
     
+    # 1. Epidemiological Pathogen Risk Indices
     risks = calculate_disease_risks(temp, humidity, rain, wind)
     
-    # Process 5-day daily forecast risks
+    # 2. Real-Time Psychrometric Delta-T & Wind Hazard Analysis
+    delta_t_data = calculate_delta_t(temp, humidity)
+    wind_hazard_data = evaluate_wind_drift_hazard(wind, gusts)
+    
+    # 3. 48-Hour Hourly Spray Window & Rainfastness Timeline
+    spray_analysis = compute_spray_window_timeline(
+        hourly_weather=hourly,
+        chemical_key=chemical_key,
+        max_hours=48
+    )
+    
+    # 4. Process 5-day daily forecast risks
     daily_forecasts = []
     dates = daily.get("time", [])
     max_temps = daily.get("temperature_2m_max", [])
@@ -169,25 +202,29 @@ async def fetch_weather_by_coords(lat: float, lon: float, location_name: str = "
             "humidity_pct": humidity,
             "precipitation_mm": rain,
             "wind_speed_kmh": wind,
+            "wind_gusts_kmh": gusts,
             "apparent_temp_c": current.get("apparent_temperature", temp),
-            "weather_code": current.get("weather_code", 0)
+            "weather_code": current.get("weather_code", 0),
+            "delta_t": delta_t_data,
+            "wind_drift": wind_hazard_data
         },
         "epidemiological_risk": risks,
-        "five_day_forecast": daily_forecasts
+        "five_day_forecast": daily_forecasts,
+        "spray_window_analysis": spray_analysis
     }
 
-async def search_city_and_get_risk(city_name: str) -> Dict[str, Any]:
+async def search_city_and_get_risk(city_name: str, chemical_key: str = "systemic_fungicide") -> Dict[str, Any]:
     """
-    Geocode city name and retrieve full weather risk analysis with sanitized query parameters.
+    Geocode city name and retrieve full weather risk + spray window analysis.
     """
     clean_city = str(city_name).strip()[:100]  # Bound string length
     
     # Check if popular location first
     for loc in POPULAR_LOCATIONS:
         if clean_city.lower() in loc["name"].lower():
-            return await fetch_weather_by_coords(loc["lat"], loc["lon"], loc["name"])
+            return await fetch_weather_by_coords(loc["lat"], loc["lon"], loc["name"], chemical_key=chemical_key)
             
-    # Geocoding via Open-Meteo with structured params (prevents parameter injection)
+    # Geocoding via Open-Meteo with structured params
     geo_base = "https://geocoding-api.open-meteo.com/v1/search"
     geo_params = {
         "name": clean_city,
@@ -207,9 +244,10 @@ async def search_city_and_get_risk(city_name: str) -> Dict[str, Any]:
             name = f"{first.get('name')}, {first.get('country', '')}"
             lat = first.get("latitude")
             lon = first.get("longitude")
-            return await fetch_weather_by_coords(lat, lon, name)
+            return await fetch_weather_by_coords(lat, lon, name, chemical_key=chemical_key)
     except Exception as e:
         print(f"[WeatherRisk] Geocoding API notice ({e}), using default location.")
         
     # Default fallback to Salinas Valley
-    return await fetch_weather_by_coords(36.6777, -121.6555, f"{clean_city} (Estimated Region)")
+    return await fetch_weather_by_coords(36.6777, -121.6555, f"{clean_city} (Estimated Region)", chemical_key=chemical_key)
+

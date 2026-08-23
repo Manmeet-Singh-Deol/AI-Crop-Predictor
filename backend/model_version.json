@@ -1,11 +1,11 @@
 {
-  "model_version": "v1.3.2",
+  "model_version": "v1.3.3",
   "model_architecture": "MobileNetV3-Small (Fine-Tuned Active Learning)",
   "classes_supported": 67,
   "validation_accuracy": 100.0,
   "trained_checkpoint_size_mb": 6.18,
-  "last_retrained_at": "2026-08-23 00:23:55",
-  "training_dataset_size": 2683,
-  "active_learning_samples_incorporated": 3,
+  "last_retrained_at": "2026-08-23 10:10:18",
+  "training_dataset_size": 2686,
+  "active_learning_samples_incorporated": 6,
   "status": "production_deployed"
 }

@@ -673,6 +673,124 @@
                 </div>
             </div>
 
+            <!-- ========================================================= -->
+            <!-- OPTIMAL SPRAY WINDOW & RAINFASTNESS ENGINE HUB -->
+            <!-- ========================================================= -->
+            <div id="spray-engine-container" class="mt-6 pt-5 border-t border-slate-800 space-y-4">
+                
+                <!-- Spray Hub Header & Chemical Formulation Selector -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950/80 p-4 rounded-xl border border-slate-800/80">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/30 flex-shrink-0">
+                            <i class="fa-solid fa-droplet-slash"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h4 class="text-sm font-bold text-white font-['Plus_Jakarta_Sans']">Optimal Spray Window & Rainfastness Engine</h4>
+                                <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/40">DELTA-T PSYCHROMETRICS</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400">Delta-T evaporation index, droplet drift physics, and precipitation washout protection</p>
+                        </div>
+                    </div>
+
+                    <!-- Chemical Formulation Selector -->
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <span class="text-[11px] font-semibold text-slate-400 whitespace-nowrap">Product:</span>
+                        <select id="spray-chemical-select" class="flex-1 sm:w-64 bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:border-emerald-500 focus:outline-none transition cursor-pointer">
+                            <option value="systemic_fungicide">🧪 Systemic Fungicide (2.5h Rainfast)</option>
+                            <option value="contact_fungicide">🛡️ Contact / Protectant (5.0h Rainfast)</option>
+                            <option value="bio_fungicide">🌿 Bio-Fungicide (4.0h Rainfast + Low UV)</option>
+                            <option value="neem_botanical">🍃 Neem / Botanical Oil (3.0h Rainfast)</option>
+                            <option value="systemic_insecticide">🐛 Systemic Insecticide (2.0h Rainfast)</option>
+                            <option value="foliar_fertilizer">🌱 Foliar NPK / Micronutrients (2.0h Rainfast)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Live Delta-T & Droplet Survival Physics Strip -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    
+                    <!-- 1. Delta-T Evaporation Meter -->
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Psychrometric Delta-T (ΔT)</span>
+                            <span id="spray-delta-t-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">IDEAL</span>
+                        </div>
+                        <div class="flex items-baseline space-x-1.5">
+                            <span id="spray-delta-t-val" class="text-2xl font-black text-emerald-400 font-mono">--.-</span>
+                            <span class="text-xs text-slate-400 font-semibold">°C (T - Tw)</span>
+                        </div>
+                        <p id="spray-delta-t-desc" class="text-[10.5px] text-slate-400 line-clamp-2 leading-tight">
+                            Target range: 2.0°C – 8.0°C for maximum droplet survival and uptake.
+                        </p>
+                    </div>
+
+                    <!-- 2. Wind Drift & Inversion Meter -->
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Wind Drift Safety</span>
+                            <span id="spray-wind-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">SAFE</span>
+                        </div>
+                        <div class="flex items-baseline space-x-1.5">
+                            <span id="spray-wind-val" class="text-2xl font-black text-slate-200 font-mono">--.-</span>
+                            <span class="text-xs text-slate-400 font-semibold">km/h</span>
+                        </div>
+                        <p id="spray-wind-desc" class="text-[10.5px] text-slate-400 line-clamp-2 leading-tight">
+                            Safe range: 3 – 15 km/h. Avoid &lt;3 km/h (inversion) or &gt;22 km/h (drift).
+                        </p>
+                    </div>
+
+                    <!-- 3. Rainfastness & Washout Protection -->
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Precipitation Washout Risk</span>
+                            <span id="spray-washout-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-950/60 text-teal-400 border border-teal-500/30">0 mm Rain</span>
+                        </div>
+                        <div class="flex items-baseline space-x-1.5">
+                            <span id="spray-rainfast-hours-val" class="text-2xl font-black text-teal-400 font-mono">--</span>
+                            <span class="text-xs text-slate-400 font-semibold">Hours Rain-Free</span>
+                        </div>
+                        <p id="spray-washout-desc" class="text-[10.5px] text-slate-400 line-clamp-2 leading-tight">
+                            Absorption clearance timeline before impending precipitation.
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- Next Recommended Spray Opportunity Banner -->
+                <div id="spray-opportunity-banner" class="bg-gradient-to-r from-emerald-950/50 via-slate-900 to-slate-950 p-4 rounded-xl border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center text-sm border border-emerald-500/30 flex-shrink-0">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div>
+                            <span id="spray-window-headline" class="text-xs font-bold text-emerald-300 block">Next Safe Spray Window: Calculating...</span>
+                            <p id="spray-window-rec" class="text-[11px] text-slate-300 mt-0.5">Fetching 48-hour hourly microclimate telemetry...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 48-Hour Hourly Interactive Spray Suitability Timeline -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">48-Hour Hourly Spray Suitability Timeline (Hover for Details)</span>
+                        <div class="flex items-center space-x-3 text-[10px]">
+                            <span class="flex items-center space-x-1 text-emerald-400 font-medium"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Optimal (&ge;80%)</span></span>
+                            <span class="flex items-center space-x-1 text-amber-400 font-medium"><span class="w-2 h-2 rounded-full bg-amber-500"></span><span>Marginal (50-79%)</span></span>
+                            <span class="flex items-center space-x-1 text-rose-400 font-medium"><span class="w-2 h-2 rounded-full bg-rose-500"></span><span>Unsafe (&lt;50%)</span></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Hourly Timeline Scroll Container -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 overflow-x-auto scrollbar-thin">
+                        <div id="spray-timeline-bars" class="flex items-end space-x-1.5 min-w-[720px] h-28 pt-2">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
         </section>
 
         <!-- NEW SECTION 2: Farm Scouting Audit Log & Inspection History -->
