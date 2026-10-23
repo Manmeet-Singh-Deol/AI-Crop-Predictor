@@ -703,6 +703,34 @@ async def export_ndvi_geojson(
     )
     return res.get("geojson", {})
 
+@app.get("/api/download-report-pdf")
+async def download_project_report_pdf():
+    """Download the comprehensive 78-page Major Project Final Report in PDF format."""
+    report_pdf_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Major_Project_Final_Report_AgroAI.pdf")
+    if not os.path.exists(report_pdf_path):
+        report_pdf_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "Major_Project_Final_Report_AgroAI.pdf")
+    if os.path.exists(report_pdf_path):
+        return FileResponse(
+            report_pdf_path,
+            media_type="application/pdf",
+            filename="Major_Project_Final_Report_AgroAI.pdf"
+        )
+    raise HTTPException(status_code=404, detail="Project report PDF not found")
+
+@app.get("/api/download-report-docx")
+async def download_project_report_docx():
+    """Download the comprehensive 78-page Major Project Final Report in Word DOCX format."""
+    report_docx_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Major_Project_Final_Report_AgroAI.docx")
+    if not os.path.exists(report_docx_path):
+        report_docx_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "Major_Project_Final_Report_AgroAI.docx")
+    if os.path.exists(report_docx_path):
+        return FileResponse(
+            report_docx_path,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename="Major_Project_Final_Report_AgroAI.docx"
+        )
+    raise HTTPException(status_code=404, detail="Project report DOCX not found")
+
 # Serve frontend index.html and static assets
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
